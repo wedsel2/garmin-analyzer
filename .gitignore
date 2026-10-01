@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+.env
+.coverage
+coverage.xml
+junit.xml
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.scannerwork/

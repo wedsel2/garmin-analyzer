@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: garmin
+      POSTGRES_DB: garmin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD, see .env.example}
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U garmin -d garmin"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  app:
+    image: ${APP_IMAGE:-garmin-analyzer:dev}
+    build:
+      context: .
+      dockerfile: Containerfile
+    environment:
+      DATABASE_URL: postgresql://garmin:${POSTGRES_PASSWORD}@db:5432/garmin
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

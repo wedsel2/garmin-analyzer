@@ -1,0 +1,4 @@
+failure-threshold: warning
+ignored:
+  # Base images are pinned by digest (maintained by Renovate) rather than apt package versions.
+  - DL3008
