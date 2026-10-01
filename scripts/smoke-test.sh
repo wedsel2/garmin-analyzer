@@ -13,7 +13,16 @@ echo "--- image runs as non-root"
 uid="$(docker run --rm --entrypoint id "$APP_IMAGE" -u)"
 [ "$uid" != "0" ] || { echo "image runs as root" >&2; exit 1; }
 
-echo "--- healthcheck passes with the database up"
+echo "--- healthcheck fails before migrations are applied"
+if docker compose run --rm app healthcheck; then
+    echo "healthcheck passed on an unmigrated database" >&2
+    exit 1
+fi
+
+echo "--- migrations apply from the packaged image"
+docker compose run --rm app migrate
+
+echo "--- healthcheck passes on the migrated database"
 docker compose run --rm app healthcheck
 
 echo "--- healthcheck fails with the database down"

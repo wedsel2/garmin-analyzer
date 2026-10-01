@@ -1,37 +1,41 @@
-from unittest.mock import MagicMock
-
-import psycopg
 import pytest
+from sqlalchemy import Engine
 
-from garmin_analyzer import cli
-
-DSN = "postgresql://user@db/name"
+from garmin_analyzer import cli, migrate
 
 
-def test_healthcheck_ok(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+def test_healthcheck_ok_on_migrated_database(
+    db: Engine, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    connect = MagicMock()
-    monkeypatch.setattr(psycopg, "connect", connect)
-    monkeypatch.setenv("DATABASE_URL", DSN)
-
     assert cli.main(["healthcheck"]) == 0
     assert capsys.readouterr().out == "ok\n"
-    connect.assert_called_once_with(DSN, connect_timeout=5)
-    connect.return_value.__enter__.return_value.execute.assert_called_once_with("SELECT 1")
 
 
-def test_healthcheck_database_unreachable(
+def test_healthcheck_fails_when_schema_is_behind(
+    empty_db: Engine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["healthcheck"]) == 1
+    assert "database schema is not up to date" in capsys.readouterr().err
+
+
+def test_healthcheck_fails_when_database_is_unreachable(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(psycopg, "connect", MagicMock(side_effect=psycopg.OperationalError("down")))
-    monkeypatch.setenv("DATABASE_URL", DSN)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:secret@127.0.0.1:1/name")
 
     assert cli.main(["healthcheck"]) == 1
-    assert "database unreachable: down" in capsys.readouterr().err
+    assert "database error" in capsys.readouterr().err
 
 
-def test_healthcheck_requires_database_url(
+def test_migrate_brings_schema_up_to_date(
+    empty_db: Engine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["migrate"]) == 0
+    assert capsys.readouterr().out == "database schema is up to date\n"
+    assert migrate.is_up_to_date(empty_db)
+
+
+def test_database_url_is_required(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.delenv("DATABASE_URL", raising=False)
