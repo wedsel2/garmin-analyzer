@@ -20,7 +20,8 @@
     ],
     "deny": [
       "Read(./.env)",
-      "Read(./.garmin-tokens/**)"
+      "Read(./.garmin-tokens/tokens/**)",
+      "Read(./.garmin-tokens/samples/**)"
     ]
   }
 }
