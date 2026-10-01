@@ -6,7 +6,8 @@
 
 Run locally against your own account, never in CI:
 
-    uv run scripts/garmin_spike.py
+    uv run scripts/garmin_spike.py             # scripted sign-in (Garmin may block it)
+    uv run scripts/garmin_spike.py --browser   # you sign in in your browser
 
 Everything is written to .garmin-tokens/ (git-ignored):
   tokens/       Garmin tokens; a second run should log in without a password
@@ -17,12 +18,15 @@ Everything is written to .garmin-tokens/ (git-ignored):
 import base64
 import getpass
 import json
+import re
+import sys
 import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from garminconnect import (
     Garmin,
@@ -34,6 +38,16 @@ from garminconnect import (
 OUT = Path(".garmin-tokens")
 TOKENS = OUT / "tokens"
 SAMPLES = OUT / "samples"
+SSO_EMBED = "https://sso.garmin.com/sso/embed"
+SIGNIN_PARAMS = {
+    "id": "gauth-widget",
+    "embedWidget": "true",
+    "gauthHost": SSO_EMBED,
+    "service": SSO_EMBED,
+    "source": SSO_EMBED,
+    "redirectAfterAccountLoginUrl": SSO_EMBED,
+    "redirectAfterAccountCreationUrl": SSO_EMBED,
+}
 PAUSE_SECONDS = 1.0
 MAX_DEPTH = 6
 
@@ -70,6 +84,35 @@ def token_lifetime(token: str | None) -> dict[str, Any] | None:
     return lifetime
 
 
+def browser_login() -> Garmin:
+    """Let a person sign in in their own browser; we only receive the ticket.
+
+    Garmin blocks scripted sign-ins, so the script never touches the sign-in
+    page. It exchanges the single-use ticket from the final URL for tokens.
+    """
+    print("1. Open this address in your browser and sign in to Garmin:\n")
+    print(f"   {SSO_EMBED.replace('/embed', '/signin')}?{urlencode(SIGNIN_PARAMS)}\n")
+    print("2. When the page is blank or says Success, copy the full address from")
+    print("   the address bar (it contains ticket=ST-...) and paste it here quickly;")
+    print("   the ticket expires within a minute or so.\n")
+    pasted = input("Address or ticket: ")
+    match = re.search(r"ST-[A-Za-z0-9-]+", pasted)
+    if not match:
+        raise SystemExit(
+            "No ticket found. If the address bar has none, open the page source "
+            "(Ctrl+U), search for 'ticket=ST-' and paste that value."
+        )
+    garmin = Garmin()
+    # Private in the library: the same call its own widget login ends with.
+    garmin.client._exchange_service_ticket(match.group(0), service_url=SSO_EMBED)
+    garmin.client.dump(str(TOKENS))
+
+    garmin = Garmin()
+    garmin.login(str(TOKENS))
+    print("Ticket exchanged; tokens stored and verified.")
+    return garmin
+
+
 def log_in() -> tuple[Garmin, dict[str, Any]]:
     """Log in, preferring stored tokens, and report how it went."""
     facts: dict[str, Any] = {}
@@ -84,6 +127,11 @@ def log_in() -> tuple[Garmin, dict[str, Any]]:
             print("Logged in from stored tokens, no password needed.")
             facts["method"] = "stored tokens"
             return garmin, facts
+
+    if "--browser" in sys.argv:
+        garmin = browser_login()
+        facts["method"] = "browser ticket"
+        return garmin, facts
 
     # The same two-step flow the web UI will use: credentials first, MFA code second.
     email = input("Garmin email: ")
