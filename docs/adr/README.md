@@ -14,7 +14,7 @@ the old one.
 | [6](0006-single-app-image-with-postgresql.md) | One application image, stock PostgreSQL alongside | Accepted |
 | [7](0007-web-app-fastapi-server-rendered.md) | Custom web app: FastAPI with a server-rendered interface | Accepted |
 | [8](0008-built-in-accounts-and-invites.md) | Built-in accounts with invite links | Accepted |
-| [9](0009-garmin-client-and-token-storage.md) | Garmin access through python-garminconnect, storing only encrypted tokens | Proposed |
+| [9](0009-garmin-client-and-token-storage.md) | Garmin access through python-garminconnect, linked by browser sign-in, storing only encrypted tokens | Accepted |
 | [10](0010-raw-payloads-plus-normalised-tables.md) | Store raw Garmin payloads plus normalised tables | Accepted |
 | [11](0011-compose-deployment-behind-cloudflare-tunnel.md) | Deploy with Docker Compose, publish through a Cloudflare tunnel | Accepted |
 

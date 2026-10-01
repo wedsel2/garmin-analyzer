@@ -62,15 +62,20 @@ See [ADR 8](adr/0008-built-in-accounts-and-invites.md).
 
 ## Garmin link
 
-1. The user enters Garmin credentials, and the MFA code if asked, in the web UI.
-2. The app logs in once and receives tokens. The password is discarded.
-3. Tokens are stored encrypted with a key supplied to the container
-   (`TOKEN_ENCRYPTION_KEY`), so a database dump alone does not expose them.
+1. The app shows a Garmin sign-in link. The user opens it in their own browser
+   and signs in there, including MFA. The app never sees the password.
+2. The user pastes the resulting address, which contains a single-use ticket,
+   back into the app.
+3. The app exchanges the ticket for tokens and stores them encrypted with a key
+   supplied to the container (`TOKEN_ENCRYPTION_KEY`), so a database dump alone
+   does not expose them.
 4. The worker refreshes tokens as needed. If Garmin rejects them, the link is
-   marked as needing re-authentication and the user is told in the UI.
+   marked as needing re-linking and the user is told in the UI.
 
-See [ADR 9](adr/0009-garmin-client-and-token-storage.md). This part is confirmed
-by a spike before anything is built on it.
+Scripted sign-in is never used: Garmin blocks it and bans the IP address.
+
+See [ADR 9](adr/0009-garmin-client-and-token-storage.md) and the
+[spike findings](garmin-spike.md).
 
 ## Data
 

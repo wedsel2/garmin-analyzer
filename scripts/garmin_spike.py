@@ -6,8 +6,10 @@
 
 Run locally against your own account, never in CI:
 
-    uv run scripts/garmin_spike.py             # scripted sign-in (Garmin may block it)
-    uv run scripts/garmin_spike.py --browser   # you sign in in your browser
+    uv run scripts/garmin_spike.py
+
+You sign in to Garmin in your own browser and paste the resulting address. The
+script never performs a scripted sign-in: Garmin blocks those and bans the IP.
 
 Everything is written to .garmin-tokens/ (git-ignored):
   tokens/       Garmin tokens; a second run should log in without a password
@@ -16,10 +18,8 @@ Everything is written to .garmin-tokens/ (git-ignored):
 """
 
 import base64
-import getpass
 import json
 import re
-import sys
 import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
@@ -128,26 +128,8 @@ def log_in() -> tuple[Garmin, dict[str, Any]]:
             facts["method"] = "stored tokens"
             return garmin, facts
 
-    if "--browser" in sys.argv:
-        garmin = browser_login()
-        facts["method"] = "browser ticket"
-        return garmin, facts
-
-    # The same two-step flow the web UI will use: credentials first, MFA code second.
-    email = input("Garmin email: ")
-    password = getpass.getpass("Garmin password (not stored): ")
-    garmin = Garmin(email, password, return_on_mfa=True)
-    status, state = garmin.login()
-    facts["mfa_required"] = status == "needs_mfa"
-    if status == "needs_mfa":
-        garmin.resume_login(state, input("MFA code: "))
-    garmin.client.dump(str(TOKENS))
-
-    # Prove the tokens alone are enough, as the worker will depend on that.
-    garmin = Garmin()
-    garmin.login(str(TOKENS))
-    print("Logged in with credentials; tokens stored and verified.")
-    facts["method"] = "credentials"
+    garmin = browser_login()
+    facts["method"] = "browser ticket"
     return garmin, facts
 
 

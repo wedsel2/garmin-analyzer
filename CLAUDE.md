@@ -31,6 +31,8 @@ docker compose build && scripts/smoke-test.sh
 
 ## Rules
 
+- **Never run a scripted Garmin sign-in**, anywhere. It gets the IP address banned;
+  accounts are linked by browser sign-in and ticket exchange (ADR 9).
 - **Never call Garmin from tests or CI.** Tests use recorded fixtures in
   `tests/fixtures/`. Scrub names, emails, device serials and GPS tracks from a
   fixture before committing it.
