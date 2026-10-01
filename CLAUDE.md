@@ -14,12 +14,25 @@ Read before designing anything:
 
 ```bash
 uv sync                          # set up the environment
-uv run pytest                    # tests with coverage (80% floor)
+uv run pytest                    # tests with coverage (80% floor); needs Docker running
 uv run ruff check . && uv run ruff format .
 uv run mypy
 uvx pre-commit run --all-files   # everything CI lint runs
 docker compose build && scripts/smoke-test.sh
 ```
+
+Tests start a throwaway PostgreSQL through testcontainers, using the image from
+`compose.yaml`.
+
+New migration, after changing `src/garmin_analyzer/models.py` (needs
+`DATABASE_URL` pointing at a database migrated to the current head):
+
+```bash
+uv run alembic revision --autogenerate -m "describe the change"
+```
+
+Review the generated file: drop enum types in `downgrade`, and name constraints.
+`tests/test_migrate.py` fails if models and migrations disagree.
 
 ## Workflow
 
