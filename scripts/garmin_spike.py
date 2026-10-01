@@ -24,7 +24,12 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-from garminconnect import Garmin
+from garminconnect import (
+    Garmin,
+    GarminConnectAuthenticationError,
+    GarminConnectConnectionError,
+    GarminConnectTooManyRequestsError,
+)
 
 OUT = Path(".garmin-tokens")
 TOKENS = OUT / "tokens"
@@ -215,7 +220,16 @@ def probe(calls: dict[str, Callable[[], Any]]) -> dict[str, Any]:
 
 def main() -> None:
     SAMPLES.mkdir(parents=True, exist_ok=True)
-    garmin, login_facts = log_in()
+    try:
+        garmin, login_facts = log_in()
+    except GarminConnectAuthenticationError as error:
+        raise SystemExit(f"Garmin rejected the credentials or MFA code: {error}") from None
+    except (GarminConnectTooManyRequestsError, GarminConnectConnectionError) as error:
+        raise SystemExit(
+            f"Login blocked or failed: {error}\n"
+            "Do not retry straight away: repeated attempts extend the block. "
+            "Check that you can sign in at https://connect.garmin.com, then wait an hour."
+        ) from None
 
     day = (date.today() - timedelta(days=1)).isoformat()
     week_ago = (date.today() - timedelta(days=7)).isoformat()
