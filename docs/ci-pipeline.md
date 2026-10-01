@@ -37,6 +37,7 @@ A change cannot reach the registry unless:
 
 - all pre-commit hooks pass,
 - tests pass with at least 80% coverage,
+- the SonarQube Cloud quality gate passes (`sonar.qualitygate.wait=true`),
 - Trivy finds no fixable HIGH or CRITICAL vulnerability in the lockfile,
   Containerfile or image,
 - the image runs as non-root, passes `healthcheck` against PostgreSQL, and fails
