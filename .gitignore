@@ -10,3 +10,9 @@ junit.xml
 .pytest_cache/
 .ruff_cache/
 .scannerwork/
+
+# Claude Code personal overrides
+.claude/settings.local.json
+
+# Local Garmin tokens and raw samples from the spike
+.garmin-tokens/

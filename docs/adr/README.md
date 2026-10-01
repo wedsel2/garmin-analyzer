@@ -12,6 +12,11 @@ the old one.
 | [4](0004-dependency-updates-with-renovate.md) | Renovate for updates, Dependabot for alerts only | Accepted |
 | [5](0005-build-once-promote-and-release.md) | Build once, promote the tested image, release with semantic-release | Accepted |
 | [6](0006-single-app-image-with-postgresql.md) | One application image, stock PostgreSQL alongside | Accepted |
+| [7](0007-web-app-fastapi-server-rendered.md) | Custom web app: FastAPI with a server-rendered interface | Accepted |
+| [8](0008-built-in-accounts-and-invites.md) | Built-in accounts with invite links | Accepted |
+| [9](0009-garmin-client-and-token-storage.md) | Garmin access through python-garminconnect, storing only encrypted tokens | Proposed |
+| [10](0010-raw-payloads-plus-normalised-tables.md) | Store raw Garmin payloads plus normalised tables | Accepted |
+| [11](0011-compose-deployment-behind-cloudflare-tunnel.md) | Deploy with Docker Compose, publish through a Cloudflare tunnel | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.
