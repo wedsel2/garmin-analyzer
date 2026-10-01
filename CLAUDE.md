@@ -1,0 +1,45 @@
+# garmin-analyzer
+
+Self-hosted, multi-user web app that collects Garmin metrics into PostgreSQL and
+visualises them. Planned later: goals and AI-based training recommendations.
+
+Read before designing anything:
+
+- `docs/architecture.md` - components, data flow, deployment
+- `docs/roadmap.md` - phases and what is in scope now
+- `docs/adr/` - why things are the way they are
+- `docs/ci-pipeline.md` - pipeline, gates, releasing
+
+## Commands
+
+```bash
+uv sync                          # set up the environment
+uv run pytest                    # tests with coverage (80% floor)
+uv run ruff check . && uv run ruff format .
+uv run mypy
+uvx pre-commit run --all-files   # everything CI lint runs
+docker compose build && scripts/smoke-test.sh
+```
+
+## Workflow
+
+- `main` is protected. Work on a branch, open a pull request, squash-merge.
+- Commit messages and PR titles follow Conventional Commits. `feat:` and `fix:`
+  trigger a release; `docs:`, `ci:`, `chore:`, `test:`, `refactor:` do not.
+- Add dependencies with `uv add` (or `uv add --dev`), never by editing the lockfile.
+- Pin GitHub Actions by commit SHA with the version in a trailing comment.
+
+## Rules
+
+- **Never call Garmin from tests or CI.** Tests use recorded fixtures in
+  `tests/fixtures/`. Scrub names, emails, device serials and GPS tracks from a
+  fixture before committing it.
+- **This repository is public.** Never commit or log Garmin credentials, tokens,
+  `.env`, or real health data. `.garmin-tokens/` is local only.
+- **Every table that holds user data has a `user_id`**, and every query filters on it.
+- **Schema changes go through an Alembic migration**, never ad-hoc DDL.
+- **The server side is Python only.** No Node toolchain; front-end libraries are
+  vendored static files (see ADR 7).
+- **An architecture decision needs a record.** Use the `adr` skill, and update
+  `docs/architecture.md` in the same pull request when the design changes.
+- Code is typed (mypy strict) and new behaviour comes with tests.

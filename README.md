@@ -41,5 +41,11 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 Dependencies (Python, base images, actions, pre-commit hooks) are kept current by Renovate.
 
+## Documentation
+
+- [Architecture](docs/architecture.md) and [roadmap](docs/roadmap.md)
+- Contributing with Claude Code: [CLAUDE.md](CLAUDE.md) and `.claude/` hold the
+  shared project instructions, permissions and skills.
+
 Details and one-time setup: [docs/ci-pipeline.md](docs/ci-pipeline.md).
 Why it is built this way: [decision records](docs/adr/README.md).
