@@ -185,3 +185,82 @@ class HeartRateSample(Base):
     )
     measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     bpm: Mapped[int] = mapped_column(SmallInteger)
+
+
+class StressSample(Base):
+    """Intraday stress level, 0 to 100."""
+
+    __tablename__ = "stress_samples"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    level: Mapped[int] = mapped_column(SmallInteger)
+
+
+class BodyBatterySample(Base):
+    """Intraday body battery level, 0 to 100."""
+
+    __tablename__ = "body_battery_samples"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    level: Mapped[int] = mapped_column(SmallInteger)
+
+
+class RespirationSample(Base):
+    """Intraday respiration rate."""
+
+    __tablename__ = "respiration_samples"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    breaths_per_min: Mapped[float]
+
+
+class HrvSummary(Base):
+    """Heart rate variability for the night that ends on calendar_date."""
+
+    __tablename__ = "hrv_summaries"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    calendar_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    weekly_avg: Mapped[int | None]
+    last_night_avg: Mapped[int | None]
+    last_night_5min_high: Mapped[int | None]
+    baseline_low_upper: Mapped[int | None]
+    baseline_balanced_low: Mapped[int | None]
+    baseline_balanced_upper: Mapped[int | None]
+    status: Mapped[str | None] = mapped_column(Text)
+
+
+class HrvReading(Base):
+    """Heart rate variability during sleep, one row per reading."""
+
+    __tablename__ = "hrv_readings"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    hrv_ms: Mapped[int] = mapped_column(SmallInteger)
+
+
+class StepInterval(Base):
+    """Steps per interval of the day, as Garmin buckets them."""
+
+    __tablename__ = "step_intervals"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    steps: Mapped[int]
