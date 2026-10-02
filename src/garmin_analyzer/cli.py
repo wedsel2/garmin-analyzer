@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from garmin_analyzer import migrate
 from garmin_analyzer.config import ConfigError
 from garmin_analyzer.db import make_engine
+from garmin_analyzer.tokens import generate_key
 
 
 def healthcheck(engine: Engine) -> int:
@@ -46,7 +47,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     subcommands = parser.add_subparsers(dest="command", required=True)
     for name, (_, description) in COMMANDS.items():
         subcommands.add_parser(name, help=description)
+    subcommands.add_parser("generate-key", help="print a new TOKEN_ENCRYPTION_KEY")
     args = parser.parse_args(argv)
+
+    if args.command == "generate-key":
+        print(generate_key())
+        return 0
 
     try:
         engine = make_engine()
