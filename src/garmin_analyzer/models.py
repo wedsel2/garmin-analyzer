@@ -264,3 +264,110 @@ class StepInterval(Base):
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     steps: Mapped[int]
+
+
+class TrainingReadiness(Base):
+    """Training readiness. Garmin can report several per day, e.g. after a workout."""
+
+    __tablename__ = "training_readiness"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    calendar_date: Mapped[date] = mapped_column(Date, index=True)
+    score: Mapped[int | None]
+    level: Mapped[str | None] = mapped_column(Text)
+    feedback: Mapped[str | None] = mapped_column(Text)
+    sleep_score: Mapped[int | None]
+    recovery_time_min: Mapped[int | None]
+    acute_load: Mapped[int | None]
+    hrv_weekly_avg: Mapped[int | None]
+    # How much each factor contributes to the score, 0 to 100.
+    sleep_factor_pct: Mapped[int | None]
+    recovery_time_factor_pct: Mapped[int | None]
+    acwr_factor_pct: Mapped[int | None]
+    stress_history_factor_pct: Mapped[int | None]
+    hrv_factor_pct: Mapped[int | None]
+    sleep_history_factor_pct: Mapped[int | None]
+
+
+class TrainingStatus(Base):
+    """Training status and load for a day, from the primary training device."""
+
+    __tablename__ = "training_status"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    calendar_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    status_code: Mapped[int | None]
+    status: Mapped[str | None] = mapped_column(Text)
+    sport: Mapped[str | None] = mapped_column(Text)
+    fitness_trend: Mapped[int | None]
+    acute_load: Mapped[int | None]
+    chronic_load: Mapped[int | None]
+    # Acute to chronic workload ratio.
+    acwr: Mapped[float | None]
+    acwr_status: Mapped[str | None] = mapped_column(Text)
+    # Four-week load per intensity, and how Garmin judges the mix.
+    load_aerobic_low: Mapped[float | None]
+    load_aerobic_high: Mapped[float | None]
+    load_anaerobic: Mapped[float | None]
+    load_balance: Mapped[str | None] = mapped_column(Text)
+
+
+class Vo2Max(Base):
+    """VO2 max estimates and acclimation on the day they were updated."""
+
+    __tablename__ = "vo2max"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    calendar_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    running: Mapped[float | None]
+    cycling: Mapped[float | None]
+    heat_acclimation_pct: Mapped[int | None]
+    altitude_acclimation: Mapped[int | None]
+
+
+class RacePrediction(Base):
+    """Predicted race times in seconds."""
+
+    __tablename__ = "race_predictions"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    calendar_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    time_5k_s: Mapped[int | None]
+    time_10k_s: Mapped[int | None]
+    time_half_marathon_s: Mapped[int | None]
+    time_marathon_s: Mapped[int | None]
+
+
+class FitnessAge(Base):
+    __tablename__ = "fitness_ages"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    calendar_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    fitness_age: Mapped[float | None]
+    chronological_age: Mapped[int | None]
+    achievable_fitness_age: Mapped[float | None]
+
+
+class PowerThreshold(Base):
+    """Functional threshold power per sport, on the day it was set."""
+
+    __tablename__ = "power_thresholds"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    sport: Mapped[str] = mapped_column(Text, primary_key=True)
+    calendar_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    ftp_watts: Mapped[int]
+    power_to_weight: Mapped[float | None]

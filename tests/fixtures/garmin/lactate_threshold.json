@@ -1,0 +1,23 @@
+{
+  "speed_and_heart_rate": {
+    "userProfilePK": null,
+    "version": null,
+    "calendarDate": null,
+    "sequence": null,
+    "speed": null,
+    "heartRate": null,
+    "heartRateCycling": null
+  },
+  "power": {
+    "userProfilePk": 1,
+    "calendarDate": "2026-01-15T19:38:08.817",
+    "origin": "redacted",
+    "sport": "RUNNING",
+    "functionalThresholdPower": 473,
+    "weight": 116.78,
+    "powerToWeight": 4.63,
+    "ftpCreateTime": "2026-01-15T19:38:08.817",
+    "weightCreateTime": "2025-06-20T11:32:52.146",
+    "isStale": false
+  }
+}
