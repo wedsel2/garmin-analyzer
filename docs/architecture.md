@@ -87,6 +87,12 @@ See [ADR 9](adr/0009-garmin-client-and-token-storage.md) and the
    details, laps, zones, weather and the original file;
 4. older days in the period, newest first, skipping what is already stored.
 
+Once a week per user, and on the first sync after linking, the sync is a
+**catch-up**: the last 14 days are fetched again even though they are stored. A
+watch that was away from its phone uploads days late, after those days were
+stored as empty; the catch-up picks them up without anyone having to act. A gap
+longer than 14 days needs `collect --since` by hand.
+
 An empty answer is stored, so it is not asked for again; a failed request is
 not, so the next sync retries it. A sync that is interrupted or rate-limited
 keeps what it fetched and the next one continues from there. If Garmin rejects

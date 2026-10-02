@@ -82,6 +82,10 @@ ACTIVITY_FILE_KIND = "activity_original"
 ACCOUNT_KEY = "-"
 # Garmin still changes yesterday's data today (sleep, late device syncs).
 REFETCH_DAYS = 2
+# A watch that was away from its phone uploads days late, after those days were
+# already stored as empty. Once a week the last two weeks are fetched again.
+CATCH_UP_DAYS = 14
+CATCH_UP_INTERVAL = timedelta(days=7)
 DEFAULT_PAUSE_SECONDS = 1.0
 
 
@@ -110,16 +114,19 @@ class Collector:
         self.sleep = sleep
         self.result = SyncResult()
 
-    def sync(self, since: date, today: date) -> SyncResult:
-        """Fetch what is new first, then fill in history, newest day first."""
+    def sync(self, since: date, today: date, refetch_days: int = REFETCH_DAYS) -> SyncResult:
+        """Fetch what is new first, then fill in history, newest day first.
+
+        The most recent refetch_days days are fetched even when already stored.
+        """
         days = [today - timedelta(days=offset) for offset in range((today - since).days + 1)]
         self.sync_account()
         for day in days[:REFETCH_DAYS]:
             self.sync_day(day, refetch=True)
         self.sync_range(since, today)
         self.sync_activities(since, today)
-        for day in days[REFETCH_DAYS:]:
-            self.sync_day(day, refetch=False)
+        for position, day in enumerate(days[REFETCH_DAYS:], start=REFETCH_DAYS):
+            self.sync_day(day, refetch=position < refetch_days)
         return self.result
 
     def sync_account(self) -> None:
@@ -265,8 +272,15 @@ def collect_user(
         # Keeps the refreshed tokens, or the mark that a new sign-in is needed.
         session.commit()
     collector = Collector(session, user_id, garmin, pause, sleep)
+    now = datetime.now(UTC)
+    last_catch_up = session.get_one(GarminLink, user_id).last_catch_up_at
+    catching_up = last_catch_up is None or now - last_catch_up >= CATCH_UP_INTERVAL
+    refetch_days = REFETCH_DAYS
+    if catching_up:
+        refetch_days = CATCH_UP_DAYS
+        since = min(since, today - timedelta(days=CATCH_UP_DAYS - 1))
     try:
-        collector.sync(since, today)
+        collector.sync(since, today, refetch_days)
     except RelinkRequired as error:
         mark_needs_relink(session, user_id, str(error))
         collector.result.stopped = "Garmin rejected the tokens; link the account again"
@@ -276,7 +290,10 @@ def collect_user(
         session.rollback()
         raise
     else:
-        session.get_one(GarminLink, user_id).last_synced_at = datetime.now(UTC)
+        link = session.get_one(GarminLink, user_id)
+        link.last_synced_at = datetime.now(UTC)
+        if catching_up:
+            link.last_catch_up_at = now
     finally:
         # A refresh during the sync may have replaced the tokens. Losing them
         # would force a new sign-in, so they are saved however the sync ended.

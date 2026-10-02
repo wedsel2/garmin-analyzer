@@ -17,8 +17,10 @@ docker compose run --rm app collect --days 7
 ```
 
 `collect` without an email syncs every linked user. Run it again at any time: it
-fetches the last two days anew and only what is still missing before that. Use
-`--since 2024-01-01` to fill in history; it can be interrupted and resumed.
+fetches the last two days anew and only what is still missing before that. Once
+a week it also fetches the last two weeks again, so days your watch uploaded
+late are not missed. Use `--since 2024-01-01` to fill in history; it can be
+interrupted and resumed.
 
 Released images: `ghcr.io/wedsel2/garmin-analyzer:<version>`.
 

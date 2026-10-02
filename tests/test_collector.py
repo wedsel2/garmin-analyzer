@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from garmin_analyzer.collector import (
     ACCOUNT_ENDPOINTS,
     ACTIVITY_ENDPOINTS,
+    CATCH_UP_INTERVAL,
     DAILY_ENDPOINTS,
     Collector,
     collect_user,
@@ -312,6 +313,11 @@ def linked(
     return garmin
 
 
+def link_of(session: Session, user: User) -> GarminLink:
+    session.expire_all()
+    return session.get_one(GarminLink, user.id)
+
+
 def run(session: Session, user: User, cipher: TokenCipher) -> Any:
     return collect_user(
         session, user.id, cipher, since=TODAY, today=TODAY, pause=0, sleep=lambda seconds: None
@@ -330,7 +336,8 @@ def test_collect_user_syncs_and_records_it(
     assert link.status is LinkStatus.ACTIVE
     # A refresh during the sync may have replaced the tokens; the new ones are kept.
     assert cipher.decrypt(link.encrypted_tokens) == "tokens-after-sync"
-    assert raw_count(session, "user_summary") == 1
+    # The first sync of a link is also its first catch-up over two weeks.
+    assert raw_count(session, "user_summary") == 14
 
 
 def test_rate_limit_stops_the_sync_and_keeps_what_was_fetched(
@@ -344,6 +351,7 @@ def test_rate_limit_stops_the_sync_and_keeps_what_was_fetched(
     assert result.stopped == "Garmin rate limit reached; try again later"
     # The daily summary comes before sleep and was already fetched.
     assert raw_count(session, "user_summary") == 1
+    assert link_of(session, user).last_catch_up_at is None
     assert linked.count("get_heart_rates") == 0
     link = session.get_one(GarminLink, user.id)
     assert link.status is LinkStatus.ACTIVE
@@ -399,7 +407,7 @@ def test_tokens_are_saved_even_when_the_sync_fails_unexpectedly(
     linked: FakeGarmin,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def broken(self: Collector, since: date, today: date) -> Any:
+    def broken(self: Collector, since: date, today: date, refetch_days: int) -> Any:
         # The library refreshed the tokens, then something unforeseen happened.
         linked.current_tokens = "tokens-refreshed-mid-sync"
         raise RuntimeError("unforeseen")
@@ -413,3 +421,77 @@ def test_tokens_are_saved_even_when_the_sync_fails_unexpectedly(
     link = session.get_one(GarminLink, user.id)
     assert cipher.decrypt(link.encrypted_tokens) == "tokens-refreshed-mid-sync"
     assert link.last_synced_at is None
+
+
+# Weekly catch-up: days that were stored empty get a second chance.
+
+
+def summary_days(garmin: FakeGarmin) -> list[str]:
+    return [call[1] for call in garmin.calls if call[0] == "get_user_summary"]
+
+
+def test_first_sync_covers_the_last_two_weeks(
+    session: Session, user: User, cipher: TokenCipher, linked: FakeGarmin
+) -> None:
+    run(session, user, cipher)
+    session.expire_all()
+
+    days = summary_days(linked)
+    assert len(days) == 14
+    assert (max(days), min(days)) == ("2026-01-15", "2026-01-02")
+    assert session.get_one(GarminLink, user.id).last_catch_up_at is not None
+
+
+def test_sync_soon_after_a_catch_up_fetches_recent_days_only(
+    session: Session, user: User, cipher: TokenCipher, linked: FakeGarmin
+) -> None:
+    run(session, user, cipher)
+    linked.calls.clear()
+
+    run(session, user, cipher)
+
+    assert summary_days(linked) == ["2026-01-15"]
+
+
+def test_catch_up_a_week_later_fetches_stored_days_again(
+    session: Session, user: User, cipher: TokenCipher, linked: FakeGarmin
+) -> None:
+    run(session, user, cipher)
+    link = session.get_one(GarminLink, user.id)
+    assert link.last_catch_up_at is not None
+    link.last_catch_up_at -= CATCH_UP_INTERVAL
+    session.commit()
+    linked.calls.clear()
+
+    # The watch was away from the phone; this day was stored with no steps
+    # and Garmin has the real figure now.
+    def late_upload(method: str, *args: Any) -> Any:
+        if method == "get_user_summary" and args[0] == "2026-01-08":
+            linked.calls.append((method, *args))
+            return fixture("user_summary") | {"calendarDate": args[0], "totalSteps": 4321}
+        return FakeGarmin.call(linked, method, *args)
+
+    linked.call = late_upload  # type: ignore[method-assign]
+    run(session, user, cipher)
+    session.expire_all()
+
+    assert len(summary_days(linked)) == 14
+    steps = session.scalar(
+        select(DailySummary.steps).where(DailySummary.calendar_date == date(2026, 1, 8))
+    )
+    assert steps == 4321
+
+
+def test_interrupted_catch_up_is_tried_again_next_time(
+    session: Session, user: User, cipher: TokenCipher, linked: FakeGarmin
+) -> None:
+    linked.failures["get_sleep_data"] = RateLimited("429")
+    run(session, user, cipher)
+    session.expire_all()
+    assert session.get_one(GarminLink, user.id).last_catch_up_at is None
+
+    linked.failures.clear()
+    linked.calls.clear()
+    run(session, user, cipher)
+
+    assert len(summary_days(linked)) == 14
