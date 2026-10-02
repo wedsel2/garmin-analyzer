@@ -14,6 +14,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from garmin_analyzer.models import (
+    Activity,
+    ActivityLap,
+    ActivityZone,
     Base,
     BodyBatterySample,
     DailySummary,
@@ -30,6 +33,12 @@ from garmin_analyzer.models import (
     TrainingReadiness,
     TrainingStatus,
     Vo2Max,
+)
+from garmin_analyzer.normalise_activities import (
+    activity_rows,
+    hr_zone_rows,
+    lap_rows,
+    power_zone_rows,
 )
 from garmin_analyzer.normalise_training import (
     fitness_age_rows,
@@ -262,21 +271,41 @@ NORMALISERS: dict[str, list[tuple[type[Base], Parser]]] = {
     "fitnessage_data": [(FitnessAge, fitness_age_rows)],
     "cycling_ftp": [(PowerThreshold, power_threshold_rows)],
     "lactate_threshold": [(PowerThreshold, power_threshold_rows)],
+    "activity_summary": [(Activity, activity_rows)],
+    "activity_splits": [(ActivityLap, lap_rows)],
 }
 
 
-def normalise(session: Session, user_id: uuid.UUID, endpoint: str, payload: Any) -> int:
+KeyedParser = Callable[[Any, str], list[Row]]
+
+# Responses that do not say what they belong to; the parser also gets the
+# resource key the payload was stored under (the activity id).
+KEYED_NORMALISERS: dict[str, list[tuple[type[Base], KeyedParser]]] = {
+    "activity_hr_in_timezones": [(ActivityZone, hr_zone_rows)],
+    "activity_power_in_timezones": [(ActivityZone, power_zone_rows)],
+}
+
+
+def upsert(session: Session, user_id: uuid.UUID, model: type[Base], rows: list[Row]) -> int:
+    if not rows:
+        return 0
+    rows = [row | {"user_id": user_id} for row in rows]
+    keys = sorted(column.name for column in model.__table__.primary_key)
+    # One statement cannot update the same row twice; the last entry wins.
+    rows = list({tuple(row[key] for key in keys): row for row in rows}.values())
+    statement = insert(model).values(rows)
+    updates = {name: statement.excluded[name] for name in rows[0] if name not in keys}
+    session.execute(statement.on_conflict_do_update(index_elements=keys, set_=updates))
+    return len(rows)
+
+
+def normalise(
+    session: Session, user_id: uuid.UUID, endpoint: str, payload: Any, resource_key: str = "-"
+) -> int:
     """Upsert the rows derived from one raw payload. Returns the number of rows."""
     total = 0
     for model, parse in NORMALISERS.get(endpoint, []):
-        rows = [row | {"user_id": user_id} for row in parse(payload)]
-        if not rows:
-            continue
-        keys = sorted(column.name for column in model.__table__.primary_key)
-        # One statement cannot update the same row twice; the last entry wins.
-        rows = list({tuple(row[key] for key in keys): row for row in rows}.values())
-        statement = insert(model).values(rows)
-        updates = {name: statement.excluded[name] for name in rows[0] if name not in keys}
-        session.execute(statement.on_conflict_do_update(index_elements=keys, set_=updates))
-        total += len(rows)
+        total += upsert(session, user_id, model, parse(payload))
+    for model, parse_keyed in KEYED_NORMALISERS.get(endpoint, []):
+        total += upsert(session, user_id, model, parse_keyed(payload, resource_key))
     return total
