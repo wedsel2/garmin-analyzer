@@ -22,7 +22,7 @@ from garmin_analyzer.garmin import (
 )
 from garmin_analyzer.links import NotLinked, store_link
 from garmin_analyzer.models import GarminLink, LinkStatus, User
-from garmin_analyzer.tokens import TokenCipher, generate_key
+from garmin_analyzer.tokens import TokenCipher, TokenDecryptError, generate_key
 from garmin_analyzer.users import UserError, add_user, find_user
 
 DEFAULT_DAYS = 3
@@ -74,6 +74,8 @@ def collect(engine: Engine, args: argparse.Namespace) -> int:
     cipher = TokenCipher(token_encryption_key())
     today = date.today()
     since = args.since or today - timedelta(days=args.days - 1)
+    if since > today:
+        raise UserError(f"--since {since} is in the future")
     failed = False
     with make_session_factory(engine)() as session:
         if args.email:
@@ -90,7 +92,7 @@ def collect(engine: Engine, args: argparse.Namespace) -> int:
         for user in users:
             try:
                 result = collect_user(session, user.id, cipher, since, today, args.pause)
-            except (NotLinked, RelinkRequired, GarminError) as error:
+            except (NotLinked, RelinkRequired, GarminError, TokenDecryptError) as error:
                 print(f"{user.email}: {error}", file=sys.stderr)
                 failed = True
                 continue
@@ -107,6 +109,20 @@ def collect(engine: Engine, args: argparse.Namespace) -> int:
 
 
 Handler = Callable[[Engine, argparse.Namespace], int]
+
+
+def positive_int(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be 1 or more")
+    return value
+
+
+def pause_seconds(text: str) -> float:
+    value = float(text)
+    if value < 0:
+        raise argparse.ArgumentTypeError("cannot be negative")
+    return value
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -131,13 +147,13 @@ def build_parser() -> argparse.ArgumentParser:
     collector = add("collect", collect, "fetch Garmin data for one user or all linked users")
     collector.add_argument("email", nargs="?", help="default: every user with an active link")
     collector.add_argument(
-        "--days", type=int, default=DEFAULT_DAYS, help="days back from today (default: 3)"
+        "--days", type=positive_int, default=DEFAULT_DAYS, help="days back from today (default: 3)"
     )
     collector.add_argument(
         "--since", type=date.fromisoformat, help="first day to fetch, as YYYY-MM-DD"
     )
     collector.add_argument(
-        "--pause", type=float, default=1.0, help="seconds between requests (default: 1)"
+        "--pause", type=pause_seconds, default=1.0, help="seconds between requests (default: 1)"
     )
     return parser
 

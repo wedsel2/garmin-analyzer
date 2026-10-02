@@ -196,7 +196,16 @@ class Collector:
                 set_={name: statement.excluded[name] for name in ("payload", "fetched_at")},
             )
         )
-        self.result.rows += normalise(self.session, self.user_id, endpoint, payload, key)
+        # The raw answer is kept even when it cannot be normalised: an unexpected
+        # shape must not stop the sync or lose data. It can be parsed again once
+        # the parser is fixed.
+        try:
+            with self.session.begin_nested():
+                self.result.rows += normalise(self.session, self.user_id, endpoint, payload, key)
+        except Exception as error:
+            self.result.errors.append(
+                f"{endpoint} {key}: stored but not normalised: {type(error).__name__}: {error}"
+            )
 
     def fetch_file(self, activity_id: str) -> None:
         self.sleep(self.pause)
@@ -263,9 +272,15 @@ def collect_user(
         collector.result.stopped = "Garmin rejected the tokens; link the account again"
     except RateLimited:
         collector.result.stopped = "Garmin rate limit reached; try again later"
+    except Exception:
+        session.rollback()
+        raise
     else:
         session.get_one(GarminLink, user_id).last_synced_at = datetime.now(UTC)
-    # What was fetched before an early stop is kept; the next sync skips it.
-    save_tokens(session, user_id, cipher, garmin)
-    session.commit()
+    finally:
+        # A refresh during the sync may have replaced the tokens. Losing them
+        # would force a new sign-in, so they are saved however the sync ended.
+        # What was fetched before an early stop is kept; the next sync skips it.
+        save_tokens(session, user_id, cipher, garmin)
+        session.commit()
     return collector.result

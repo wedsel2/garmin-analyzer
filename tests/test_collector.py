@@ -265,6 +265,28 @@ def test_file_download_does_not_swallow_a_stop_signal(
         collector(session, user, garmin).sync(TODAY, TODAY)
 
 
+def test_answer_that_cannot_be_normalised_is_kept_and_the_sync_continues(
+    session: Session, user: User, garmin: FakeGarmin
+) -> None:
+    def odd_steps(method: str, *args: Any) -> Any:
+        if method == "get_steps_data":
+            # An interval without its start time, which the parser requires.
+            return [{"endGMT": "2026-01-15T00:15:00.0", "steps": 5}]
+        return FakeGarmin.call(garmin, method, *args)
+
+    garmin.call = odd_steps  # type: ignore[method-assign]
+
+    result = collector(session, user, garmin).sync(TODAY, TODAY)
+
+    assert result.errors == [
+        "steps_data 2026-01-15: stored but not normalised: KeyError: 'startGMT'"
+    ]
+    assert raw_count(session, "steps_data") == 1
+    # Endpoints after the failing one were still collected and normalised.
+    assert raw_count(session, "training_status") == 1
+    assert session.scalars(select(Activity.activity_id)).all() == [1]
+
+
 # collect_user: opening the link, stopping early, keeping tokens.
 
 
@@ -368,3 +390,26 @@ def test_user_without_a_link_cannot_be_collected(
 ) -> None:
     with pytest.raises(NotLinked):
         run(session, user, cipher)
+
+
+def test_tokens_are_saved_even_when_the_sync_fails_unexpectedly(
+    session: Session,
+    user: User,
+    cipher: TokenCipher,
+    linked: FakeGarmin,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken(self: Collector, since: date, today: date) -> Any:
+        # The library refreshed the tokens, then something unforeseen happened.
+        linked.current_tokens = "tokens-refreshed-mid-sync"
+        raise RuntimeError("unforeseen")
+
+    monkeypatch.setattr(Collector, "sync", broken)
+
+    with pytest.raises(RuntimeError):
+        run(session, user, cipher)
+    session.expire_all()
+
+    link = session.get_one(GarminLink, user.id)
+    assert cipher.decrypt(link.encrypted_tokens) == "tokens-refreshed-mid-sync"
+    assert link.last_synced_at is None

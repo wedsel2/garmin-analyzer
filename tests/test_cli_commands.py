@@ -220,3 +220,34 @@ def test_collect_continues_with_other_users_when_one_cannot_be_opened(
     captured = capsys.readouterr()
     assert "cyclist@example.com: tokens rejected" in captured.err
     assert "runner@example.com" in captured.out
+
+
+@pytest.mark.parametrize(
+    "arguments", [["--days", "0"], ["--days", "-3"], ["--pause", "-1"], ["--days", "many"]]
+)
+def test_collect_rejects_values_that_make_no_sense(
+    linked_users: None, collected: list[dict[str, Any]], arguments: list[str]
+) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["collect", *arguments])
+
+    assert exit_info.value.code == 2
+    assert collected == []
+
+
+def test_collect_rejects_a_start_in_the_future(
+    linked_users: None, collected: list[dict[str, Any]], capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["collect", "--since", "2999-01-01"]) == 1
+    assert "is in the future" in capsys.readouterr().err
+    assert collected == []
+
+
+def test_collect_reports_tokens_that_cannot_be_decrypted(
+    linked_users: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The key was replaced after the links were stored.
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", generate_key())
+
+    assert cli.main(["collect", "runner@example.com"]) == 1
+    assert "stored Garmin tokens cannot be decrypted" in capsys.readouterr().err

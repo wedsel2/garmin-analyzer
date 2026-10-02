@@ -72,11 +72,15 @@ class GarminSession:
         try:
             # Private in the library: the call its own widget login ends with.
             exchange.client._exchange_service_ticket(ticket, service_url=SSO_EMBED)
-        except (GarminConnectAuthenticationError, GarminConnectConnectionError) as error:
+        except GarminConnectTooManyRequestsError as error:
+            raise LinkError("Garmin is rate limiting; wait a while and sign in again") from error
+        except (GarminConnectAuthenticationError, GarminConnectConnectionError, HTTPError) as error:
             raise LinkError(
                 "Garmin refused the ticket; it may have expired or been used already"
             ) from error
-        return cls.from_tokens(exchange.client.dumps())
+        # The ticket is spent now. Return the session as it is, without a second
+        # request that could fail and throw away the tokens just obtained.
+        return cls(exchange)
 
     @classmethod
     def from_tokens(cls, tokens: str) -> Self:
@@ -88,6 +92,10 @@ class GarminSession:
             api.login(tokenstore=tokens)
         except GarminConnectAuthenticationError as error:
             raise RelinkRequired(str(error)) from error
+        except GarminConnectTooManyRequestsError as error:
+            raise RateLimited(str(error)) from error
+        except (GarminConnectConnectionError, HTTPError) as error:
+            raise GarminError(str(error)) from error
         return cls(api)
 
     def tokens(self) -> str:
