@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import Engine
 
 from garmin_analyzer import cli, migrate
+from garmin_analyzer.tokens import TokenCipher
 
 
 def test_healthcheck_ok_on_migrated_database(
@@ -61,3 +62,12 @@ def test_command_is_required() -> None:
         cli.main([])
 
     assert exit_info.value.code == 2
+
+
+def test_generate_key_needs_no_database(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    assert cli.main(["generate-key"]) == 0
+    TokenCipher(capsys.readouterr().out.strip())

@@ -1,0 +1,50 @@
+import pytest
+
+from garmin_analyzer.config import ConfigError, token_encryption_key
+from garmin_analyzer.tokens import TokenCipher, TokenDecryptError, generate_key
+
+TOKENS = '{"di_token": "access", "di_refresh_token": "refresh", "di_client_id": "client"}'
+
+
+def test_tokens_round_trip_and_are_not_stored_in_the_clear() -> None:
+    cipher = TokenCipher(generate_key())
+
+    encrypted = cipher.encrypt(TOKENS)
+
+    assert b"refresh" not in encrypted
+    assert cipher.decrypt(encrypted) == TOKENS
+
+
+def test_another_key_cannot_decrypt() -> None:
+    encrypted = TokenCipher(generate_key()).encrypt(TOKENS)
+
+    with pytest.raises(TokenDecryptError):
+        TokenCipher(generate_key()).decrypt(encrypted)
+
+
+def test_tampered_tokens_are_rejected() -> None:
+    cipher = TokenCipher(generate_key())
+    encrypted = bytearray(cipher.encrypt(TOKENS))
+    encrypted[-1] ^= 1
+
+    with pytest.raises(TokenDecryptError):
+        cipher.decrypt(bytes(encrypted))
+
+
+def test_invalid_key_is_a_configuration_error() -> None:
+    with pytest.raises(ConfigError, match="generate-key"):
+        TokenCipher("not-a-key")
+
+
+def test_key_is_read_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    key = generate_key()
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", key)
+
+    assert token_encryption_key() == key
+
+
+def test_key_is_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TOKEN_ENCRYPTION_KEY", raising=False)
+
+    with pytest.raises(ConfigError, match="TOKEN_ENCRYPTION_KEY is not set"):
+        token_encryption_key()

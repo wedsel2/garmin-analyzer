@@ -46,6 +46,8 @@ Review the generated file: drop enum types in `downgrade`, and name constraints.
 
 - **Never run a scripted Garmin sign-in**, anywhere. It gets the IP address banned;
   accounts are linked by browser sign-in and ticket exchange (ADR 9).
+- **Only `garmin.py` imports the Garmin library.** Other code goes through
+  `GarminSession`, which exposes read methods only and never takes credentials.
 - **Never call Garmin from tests or CI.** Tests use synthetic fixtures in
   `tests/fixtures/garmin/`, made from a local sample with
   `uv run scripts/scrub_fixture.py <endpoint>`. It keeps structure and formats

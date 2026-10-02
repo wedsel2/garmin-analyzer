@@ -9,6 +9,8 @@ license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.20.0",
+    "cryptography>=50.0.2",
+    "garminconnect==0.3.17",
     "psycopg[binary]>=3.3.6",
     "sqlalchemy>=2.1.1",
 ]
@@ -33,6 +35,11 @@ select = ["E", "W", "F", "I", "B", "UP", "S", "SIM", "C4", "PT", "RUF"]
 [tool.mypy]
 strict = true
 files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+# Ships without type information; wrapped in garmin_analyzer.garmin.
+module = "garminconnect.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
