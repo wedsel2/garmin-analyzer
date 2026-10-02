@@ -19,6 +19,7 @@ from sqlalchemy import (
     Index,
     LargeBinary,
     MetaData,
+    SmallInteger,
     Text,
     UniqueConstraint,
     Uuid,
@@ -108,3 +109,79 @@ class RawPayload(Base):
     calendar_date: Mapped[date | None] = mapped_column(Date)
     payload: Mapped[Any] = mapped_column(JSONB)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DailySummary(Base):
+    """One row per user and day, from the Garmin daily summary."""
+
+    __tablename__ = "daily_summaries"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    calendar_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    steps: Mapped[int | None]
+    step_goal: Mapped[int | None]
+    distance_m: Mapped[int | None]
+    floors_ascended: Mapped[float | None]
+    floors_descended: Mapped[float | None]
+    total_kcal: Mapped[float | None]
+    active_kcal: Mapped[float | None]
+    bmr_kcal: Mapped[float | None]
+    highly_active_s: Mapped[int | None]
+    active_s: Mapped[int | None]
+    sedentary_s: Mapped[int | None]
+    moderate_intensity_min: Mapped[int | None]
+    vigorous_intensity_min: Mapped[int | None]
+    resting_hr: Mapped[int | None]
+    min_hr: Mapped[int | None]
+    max_hr: Mapped[int | None]
+    avg_stress: Mapped[int | None]
+    max_stress: Mapped[int | None]
+    body_battery_high: Mapped[int | None]
+    body_battery_low: Mapped[int | None]
+    body_battery_charged: Mapped[int | None]
+    body_battery_drained: Mapped[int | None]
+    avg_spo2: Mapped[float | None]
+    lowest_spo2: Mapped[float | None]
+    avg_waking_respiration: Mapped[float | None]
+
+
+class SleepSession(Base):
+    """The main sleep of the night that ends on calendar_date."""
+
+    __tablename__ = "sleep_sessions"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    calendar_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    sleep_s: Mapped[int | None]
+    nap_s: Mapped[int | None]
+    deep_s: Mapped[int | None]
+    light_s: Mapped[int | None]
+    rem_s: Mapped[int | None]
+    awake_s: Mapped[int | None]
+    awake_count: Mapped[int | None]
+    score: Mapped[int | None]
+    score_qualifier: Mapped[str | None] = mapped_column(Text)
+    avg_respiration: Mapped[float | None]
+    avg_stress: Mapped[float | None]
+    avg_hrv: Mapped[float | None]
+    hrv_status: Mapped[str | None] = mapped_column(Text)
+    resting_hr: Mapped[int | None]
+    body_battery_change: Mapped[int | None]
+
+
+class HeartRateSample(Base):
+    """Intraday heart rate, one row per measurement."""
+
+    __tablename__ = "heart_rate_samples"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    bpm: Mapped[int] = mapped_column(SmallInteger)
