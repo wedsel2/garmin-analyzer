@@ -42,6 +42,19 @@ Review the generated file: drop enum types in `downgrade`, and name constraints.
 - Add dependencies with `uv add` (or `uv add --dev`), never by editing the lockfile.
 - Pin GitHub Actions by commit SHA with the version in a trailing comment.
 
+## Pull requests
+
+Before telling the user a pull request is ready to merge:
+
+1. Run `/code-review` on the branch and fix or report what it finds.
+2. Run `/security-review` when the change touches authentication, sessions,
+   tokens, encryption, user input, the Garmin wrapper, the Containerfile or the
+   workflows. Skip it for documentation-only changes and say that you skipped it.
+3. Turn on Auto-fix for the pull request when the session offers it (the Claude
+   desktop app does), so failing checks come back to the session. Never turn on
+   auto-merge unless the user asks.
+4. In the summary to the user, say which of these ran and what they found.
+
 ## Rules
 
 - **Never run a scripted Garmin sign-in**, anywhere. It gets the IP address banned;
