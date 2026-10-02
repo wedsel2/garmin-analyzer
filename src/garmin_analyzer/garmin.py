@@ -15,6 +15,8 @@ from garminconnect import (
     Garmin,
     GarminConnectAuthenticationError,
     GarminConnectConnectionError,
+    GarminConnectTooManyRequestsError,
+    HTTPError,
 )
 
 SSO_EMBED = "https://sso.garmin.com/sso/embed"
@@ -38,6 +40,14 @@ class LinkError(Exception):
 
 class RelinkRequired(Exception):
     """Garmin no longer accepts the stored tokens; the user has to link again."""
+
+
+class GarminError(Exception):
+    """A request to Garmin failed; other requests may still work."""
+
+
+class RateLimited(GarminError):
+    """Garmin asked us to slow down. Stop and try again later."""
 
 
 def extract_ticket(pasted: str) -> str:
@@ -97,3 +107,14 @@ class GarminSession:
             return getattr(self.api, method)(*args)
         except GarminConnectAuthenticationError as error:
             raise RelinkRequired(str(error)) from error
+        except GarminConnectTooManyRequestsError as error:
+            raise RateLimited(str(error)) from error
+        except (GarminConnectConnectionError, HTTPError) as error:
+            raise GarminError(str(error)) from error
+
+    def download_original(self, activity_id: str) -> bytes:
+        """The recording of an activity as the device uploaded it, in an archive."""
+        content: bytes = self.call(
+            "download_activity", activity_id, Garmin.ActivityDownloadFormat.ORIGINAL
+        )
+        return content

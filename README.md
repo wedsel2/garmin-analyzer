@@ -2,15 +2,23 @@
 
 Collects Garmin metrics into PostgreSQL so they can be visualised and analysed.
 
-> Status: pipeline skeleton. The image currently only provides a `healthcheck`
-> command; the collector and dashboards come later.
+> Status: the collector runs from the command line. The web interface and
+> dashboards come next.
 
 ## Run
 
 ```bash
-cp .env.example .env   # then set POSTGRES_PASSWORD
-docker compose run --rm app healthcheck
+cp .env.example .env                                  # set POSTGRES_PASSWORD
+docker compose run --rm app generate-key              # put the result in .env as TOKEN_ENCRYPTION_KEY
+docker compose run --rm app migrate
+docker compose run --rm app user-add you@example.com
+docker compose run --rm app link you@example.com      # sign in to Garmin in your browser, paste the address
+docker compose run --rm app collect --days 7
 ```
+
+`collect` without an email syncs every linked user. Run it again at any time: it
+fetches the last two days anew and only what is still missing before that. Use
+`--since 2024-01-01` to fill in history; it can be interrupted and resumed.
 
 Released images: `ghcr.io/wedsel2/garmin-analyzer:<version>`.
 

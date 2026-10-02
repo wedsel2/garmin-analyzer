@@ -77,6 +77,24 @@ Scripted sign-in is never used: Garmin blocks it and bans the IP address.
 See [ADR 9](adr/0009-garmin-client-and-token-storage.md) and the
 [spike findings](garmin-spike.md).
 
+## Collection
+
+`collect` syncs one user in this order, pausing between requests:
+
+1. account-wide data (profile, devices, zones, records, thresholds);
+2. today and yesterday, always fetched again because Garmin keeps adding to them;
+3. activities in the requested period: the list, then for each new activity its
+   details, laps, zones, weather and the original file;
+4. older days in the period, newest first, skipping what is already stored.
+
+An empty answer is stored, so it is not asked for again; a failed request is
+not, so the next sync retries it. A sync that is interrupted or rate-limited
+keeps what it fetched and the next one continues from there. If Garmin rejects
+the tokens, the link is marked as needing a new sign-in and nothing retries.
+
+A scheduled worker that runs this for every linked user comes with the web
+foundation; until then `collect` is run by hand or by cron.
+
 ## Data
 
 Two layers, see [ADR 10](adr/0010-raw-payloads-plus-normalised-tables.md):

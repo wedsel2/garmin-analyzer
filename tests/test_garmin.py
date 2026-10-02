@@ -4,14 +4,21 @@ from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-from garminconnect import GarminConnectAuthenticationError, GarminConnectConnectionError
+from garminconnect import Garmin as RealGarmin
+from garminconnect import (
+    GarminConnectAuthenticationError,
+    GarminConnectConnectionError,
+    GarminConnectTooManyRequestsError,
+)
 
 from garmin_analyzer import garmin
 from garmin_analyzer.garmin import (
     SIGN_IN_URL,
     SSO_EMBED,
+    GarminError,
     GarminSession,
     LinkError,
+    RateLimited,
     RelinkRequired,
     extract_ticket,
 )
@@ -161,3 +168,38 @@ def test_tokens_rejected_during_a_call_require_a_new_link(
 
     with pytest.raises(RelinkRequired):
         session.call("get_sleep_data", "2026-01-15")
+
+
+def test_rate_limit_and_other_failures_are_told_apart(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = GarminSession.from_tokens(TOKENS)
+
+    def failing(error: Exception) -> None:
+        def method(self: FakeGarmin, day: str) -> None:
+            raise error
+
+        monkeypatch.setattr(FakeGarmin, "get_sleep_data", method)
+
+    failing(GarminConnectTooManyRequestsError("429"))
+    with pytest.raises(RateLimited):
+        session.call("get_sleep_data", "2026-01-15")
+
+    failing(GarminConnectConnectionError("timeout"))
+    with pytest.raises(GarminError) as caught:
+        session.call("get_sleep_data", "2026-01-15")
+    assert not isinstance(caught.value, RateLimited)
+
+
+def test_original_file_is_requested_in_the_device_format(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[tuple[str, Any]] = []
+
+    def download(self: FakeGarmin, activity_id: str, dl_fmt: Any) -> bytes:
+        seen.append((activity_id, dl_fmt))
+        return b"PK"
+
+    monkeypatch.setattr(FakeGarmin, "download_activity", download, raising=False)
+    monkeypatch.setattr(
+        FakeGarmin, "ActivityDownloadFormat", RealGarmin.ActivityDownloadFormat, raising=False
+    )
+
+    assert GarminSession.from_tokens(TOKENS).download_original("42") == b"PK"
+    assert seen == [("42", RealGarmin.ActivityDownloadFormat.ORIGINAL)]
