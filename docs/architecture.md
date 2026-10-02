@@ -83,9 +83,10 @@ Two layers, see [ADR 10](adr/0010-raw-payloads-plus-normalised-tables.md):
 
 - **Raw**: every Garmin response as JSONB, keyed by user, endpoint and date.
 - **Normalised**: typed tables per metric family, derived from the raw layer by
-  the parsers in `normalise.py`. So far: `daily_summaries`, `sleep_sessions` and
-  `heart_rate_samples`. Still to come: HRV, stress, body battery, respiration,
-  training metrics and activities.
+  the parsers in `normalise.py`. So far: daily summaries, sleep sessions, HRV
+  summaries, and intraday samples for heart rate, stress, body battery,
+  respiration, HRV and steps. Still to come: training metrics and activities.
+  Garmin marks unmeasured points with negative numbers; parsers drop them.
 
 Schema changes are Alembic migrations, applied on start-up of the `web` service.
 

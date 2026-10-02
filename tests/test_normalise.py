@@ -9,12 +9,29 @@ from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from garmin_analyzer.db import make_session_factory
-from garmin_analyzer.models import DailySummary, HeartRateSample, SleepSession, User
+from garmin_analyzer.models import (
+    BodyBatterySample,
+    DailySummary,
+    HeartRateSample,
+    HrvReading,
+    HrvSummary,
+    RespirationSample,
+    SleepSession,
+    StepInterval,
+    StressSample,
+    User,
+)
 from garmin_analyzer.normalise import (
+    body_battery_rows,
     daily_summary_rows,
     heart_rate_rows,
+    hrv_reading_rows,
+    hrv_summary_rows,
     normalise,
+    respiration_rows,
     sleep_session_rows,
+    step_interval_rows,
+    stress_rows,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "garmin"
@@ -159,3 +176,118 @@ def test_empty_payload_stores_nothing(session: Session) -> None:
     user = make_user(session)
 
     assert normalise(session, user.id, "heart_rates", {}) == 0
+
+
+def test_stress_and_body_battery_come_from_one_response() -> None:
+    payload = fixture("stress_data")
+
+    stress = stress_rows(payload)
+    battery = body_battery_rows(payload)
+
+    assert len(stress) == len(battery) == 5
+    assert stress[0] == {"measured_at": datetime(2026, 1, 13, 20, 42, tzinfo=UTC), "level": 48}
+    assert battery[0] == {"measured_at": datetime(2026, 1, 13, 20, 42, tzinfo=UTC), "level": 8}
+
+
+def test_unmeasured_points_are_skipped() -> None:
+    # Garmin uses -1 and -2 for "not measured"; they must not be charted as readings.
+    stress = fixture("stress_data")
+    stress["stressValuesArray"] = [[1768336920000, -1], [1768337100000, -2], [1768337280000, 25]]
+    respiration = fixture("respiration_data")
+    respiration["respirationValuesArray"] = [[1768339440000, -2.0], [1768339560000, 14.0]]
+
+    assert [row["level"] for row in stress_rows(stress)] == [25]
+    assert [row["breaths_per_min"] for row in respiration_rows(respiration)] == [14.0]
+
+
+def test_values_are_found_by_descriptor_not_position() -> None:
+    payload = {
+        "stressValueDescriptorsDTOList": [
+            {"index": 1, "key": "timestamp"},
+            {"index": 0, "key": "stressLevel"},
+        ],
+        "stressValuesArray": [[33, 1768336920000]],
+    }
+
+    assert stress_rows(payload) == [
+        {"measured_at": datetime(2026, 1, 13, 20, 42, tzinfo=UTC), "level": 33}
+    ]
+
+
+def test_series_without_descriptors_produce_no_rows() -> None:
+    assert stress_rows({"stressValuesArray": [[1768336920000, 25]]}) == []
+
+
+def test_respiration_is_parsed() -> None:
+    rows = respiration_rows(fixture("respiration_data"))
+
+    assert rows[0] == {
+        "measured_at": datetime(2026, 1, 13, 21, 24, tzinfo=UTC),
+        "breaths_per_min": 15.5,
+    }
+
+
+def test_hrv_summary_and_readings_are_parsed() -> None:
+    payload = fixture("hrv_data")
+
+    (summary,) = hrv_summary_rows(payload)
+    readings = hrv_reading_rows(payload)
+
+    assert summary == {
+        "calendar_date": date(2026, 1, 14),
+        "weekly_avg": 38,
+        "last_night_avg": 60,
+        "last_night_5min_high": 102,
+        "baseline_low_upper": 46,
+        "baseline_balanced_low": 69,
+        "baseline_balanced_upper": 69,
+        "status": "BALANCED",
+    }
+    assert readings[0] == {
+        "measured_at": datetime(2026, 1, 14, 21, 26, 54, tzinfo=UTC),
+        "hrv_ms": 54,
+    }
+
+
+def test_step_intervals_are_parsed() -> None:
+    rows = step_interval_rows(fixture("steps_data"))
+
+    assert len(rows) == 5
+    assert rows[3] == {
+        "start_at": datetime(2026, 1, 14, 23, 45, tzinfo=UTC),
+        "end_at": datetime(2026, 1, 15, 0, 0, tzinfo=UTC),
+        "steps": 34,
+    }
+
+
+@pytest.mark.parametrize("payload", [None, {}, [], {"hrvSummary": None, "hrvReadings": None}])
+def test_empty_intraday_responses_produce_no_rows(payload: Any) -> None:
+    for parse in (
+        stress_rows,
+        body_battery_rows,
+        respiration_rows,
+        hrv_summary_rows,
+        hrv_reading_rows,
+        step_interval_rows,
+    ):
+        assert parse(payload) == []
+
+
+def test_one_response_can_feed_several_tables(session: Session) -> None:
+    user = make_user(session)
+
+    assert normalise(session, user.id, "stress_data", fixture("stress_data")) == 10
+    assert normalise(session, user.id, "hrv_data", fixture("hrv_data")) == 6
+    assert normalise(session, user.id, "respiration_data", fixture("respiration_data")) == 5
+    assert normalise(session, user.id, "steps_data", fixture("steps_data")) == 5
+    session.commit()
+
+    for model, expected in (
+        (StressSample, 5),
+        (BodyBatterySample, 5),
+        (HrvSummary, 1),
+        (HrvReading, 5),
+        (RespirationSample, 5),
+        (StepInterval, 5),
+    ):
+        assert session.scalar(select(func.count()).select_from(model)) == expected
