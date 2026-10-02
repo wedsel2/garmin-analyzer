@@ -86,8 +86,19 @@ Two layers, see [ADR 10](adr/0010-raw-payloads-plus-normalised-tables.md):
   the parsers in `normalise.py`. So far: daily summaries, sleep sessions, HRV
   summaries, and intraday samples for heart rate, stress, body battery,
   respiration, HRV and steps, plus training readiness, training status, VO2
-  max, race predictions, fitness age and power thresholds. Still to come:
-  activities.
+  max, race predictions, fitness age and power thresholds, and activities
+  with their laps and time in zones.
+- **Original files**: the recording of each activity as downloaded from Garmin,
+  in `raw_files`.
+
+Activities are stored in full but only summarised in typed tables. A table of
+per-second samples (heart rate, pace, power, position) is deliberately left for
+later: the single-activity chart reads the stored details response, and the
+table can be filled from the original files when analysis across activities
+needs it. See [ADR 12](adr/0012-activities-stored-in-full.md).
+
+Still raw-only, because the sample account had no data to build against: pulse
+ox, endurance score, hill score, and lactate threshold heart rate and speed.
   Garmin marks unmeasured points with negative numbers; parsers drop them.
 
 Schema changes are Alembic migrations, applied on start-up of the `web` service.

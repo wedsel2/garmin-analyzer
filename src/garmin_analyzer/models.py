@@ -371,3 +371,109 @@ class PowerThreshold(Base):
     calendar_date: Mapped[date] = mapped_column(Date, primary_key=True)
     ftp_watts: Mapped[int]
     power_to_weight: Mapped[float | None]
+
+
+class RawFile(Base):
+    """A file downloaded from Garmin, stored as received.
+
+    kind "activity_original" is the archive holding the recording from the
+    device, keyed by activity id. See ADR 12.
+    """
+
+    __tablename__ = "raw_files"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "kind", "resource_key", name="uq_raw_files_user_id_kind_resource_key"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(Text)
+    resource_key: Mapped[str] = mapped_column(Text)
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Activity(Base):
+    """One recorded activity with its summary figures."""
+
+    __tablename__ = "activities"
+    __table_args__ = (Index("ix_activities_user_id_start_at", "user_id", "start_at"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    activity_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    type_key: Mapped[str | None] = mapped_column(Text)
+    name: Mapped[str | None] = mapped_column(Text)
+    is_parent: Mapped[bool] = mapped_column(default=False)
+    duration_s: Mapped[float | None]
+    moving_duration_s: Mapped[float | None]
+    elapsed_duration_s: Mapped[float | None]
+    distance_m: Mapped[float | None]
+    elevation_gain_m: Mapped[float | None]
+    elevation_loss_m: Mapped[float | None]
+    avg_speed_mps: Mapped[float | None]
+    max_speed_mps: Mapped[float | None]
+    calories: Mapped[float | None]
+    avg_hr: Mapped[float | None]
+    max_hr: Mapped[float | None]
+    avg_cadence: Mapped[float | None]
+    avg_power: Mapped[float | None]
+    max_power: Mapped[float | None]
+    norm_power: Mapped[float | None]
+    aerobic_training_effect: Mapped[float | None]
+    anaerobic_training_effect: Mapped[float | None]
+    training_effect_label: Mapped[str | None] = mapped_column(Text)
+    training_load: Mapped[float | None]
+    vo2max: Mapped[float | None]
+    steps: Mapped[int | None]
+    lap_count: Mapped[int | None]
+    moderate_intensity_min: Mapped[int | None]
+    vigorous_intensity_min: Mapped[int | None]
+    location_name: Mapped[str | None] = mapped_column(Text)
+    start_latitude: Mapped[float | None]
+    start_longitude: Mapped[float | None]
+
+
+class ActivityLap(Base):
+    __tablename__ = "activity_laps"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    activity_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    lap_index: Mapped[int] = mapped_column(primary_key=True)
+    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    intensity_type: Mapped[str | None] = mapped_column(Text)
+    distance_m: Mapped[float | None]
+    duration_s: Mapped[float | None]
+    moving_duration_s: Mapped[float | None]
+    elevation_gain_m: Mapped[float | None]
+    elevation_loss_m: Mapped[float | None]
+    avg_speed_mps: Mapped[float | None]
+    max_speed_mps: Mapped[float | None]
+    calories: Mapped[float | None]
+    avg_hr: Mapped[float | None]
+    max_hr: Mapped[float | None]
+    avg_cadence: Mapped[float | None]
+    avg_power: Mapped[float | None]
+    max_power: Mapped[float | None]
+
+
+class ActivityZone(Base):
+    """Time spent in a heart rate or power zone during an activity."""
+
+    __tablename__ = "activity_zones"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    activity_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # "hr" or "power".
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    zone_number: Mapped[int] = mapped_column(primary_key=True)
+    seconds: Mapped[float | None]
+    low_boundary: Mapped[int | None]

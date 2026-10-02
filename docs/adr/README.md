@@ -17,6 +17,7 @@ the old one.
 | [9](0009-garmin-client-and-token-storage.md) | Garmin access through python-garminconnect, linked by browser sign-in, storing only encrypted tokens | Accepted |
 | [10](0010-raw-payloads-plus-normalised-tables.md) | Store raw Garmin payloads plus normalised tables | Accepted |
 | [11](0011-compose-deployment-behind-cloudflare-tunnel.md) | Deploy with Docker Compose, publish through a Cloudflare tunnel | Accepted |
+| [12](0012-activities-stored-in-full.md) | Store activities in full, normalise summaries, laps and zones | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.
