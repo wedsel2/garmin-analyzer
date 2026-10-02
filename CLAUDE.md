@@ -46,9 +46,11 @@ Review the generated file: drop enum types in `downgrade`, and name constraints.
 
 - **Never run a scripted Garmin sign-in**, anywhere. It gets the IP address banned;
   accounts are linked by browser sign-in and ticket exchange (ADR 9).
-- **Never call Garmin from tests or CI.** Tests use recorded fixtures in
-  `tests/fixtures/`. Scrub names, emails, device serials and GPS tracks from a
-  fixture before committing it.
+- **Never call Garmin from tests or CI.** Tests use synthetic fixtures in
+  `tests/fixtures/garmin/`, made from a local sample with
+  `uv run scripts/scrub_fixture.py <endpoint>`. It keeps structure and formats
+  but replaces every value. Never copy a real response into the repository, and
+  review the text values the script reports as kept before committing.
 - **This repository is public.** Never commit or log Garmin credentials, tokens,
   `.env`, or real health data. `.garmin-tokens/` is local only.
 - **Every table that holds user data has a `user_id`**, and every query filters on it.

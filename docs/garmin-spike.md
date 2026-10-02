@@ -96,6 +96,8 @@ normal and must be stored as "no data", not treated as errors.
 ## Fixtures
 
 The raw samples from the spike stay local (`.garmin-tokens/samples/`, git-ignored)
-because they contain personal data. Fixtures are added per metric family in
-phase 3, through a scrubbing step that replaces identifiers, names, device
-serials and GPS coordinates before anything is committed.
+because they contain personal data. Fixtures in `tests/fixtures/garmin/` are made
+from them with `scripts/scrub_fixture.py`, which keeps the structure and value
+formats of a response but replaces every value: identifiers become counters,
+numbers become random numbers of similar size, dates and timestamps are moved,
+free text is redacted, coordinates are zeroed and long lists are cut short.

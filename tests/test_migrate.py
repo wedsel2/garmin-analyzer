@@ -14,6 +14,9 @@ def test_upgrade_creates_the_schema(empty_db: Engine) -> None:
     assert migrate.is_up_to_date(empty_db)
     assert set(inspect(empty_db).get_table_names()) == {
         "alembic_version",
+        "daily_summaries",
+        "sleep_sessions",
+        "heart_rate_samples",
         "users",
         "garmin_links",
         "raw_payloads",
