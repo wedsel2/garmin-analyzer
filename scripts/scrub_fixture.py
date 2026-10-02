@@ -7,13 +7,21 @@ tests/fixtures/garmin/<name>.json (committed, public). The fixture keeps the
 structure and value formats of the real response but none of its values:
 
   identifiers            replaced by small counters
-  numbers                replaced by random numbers of similar size
+  numbers                replaced by random numbers of similar size; small
+                         negative whole numbers are kept, as Garmin uses them
+                         to mean "not measured"
   dates and timestamps   moved to around 2026-01-15, with a random time offset
   text                   replaced by "redacted", except enum-like constants
   coordinates            zeroed
   long lists             cut to the first few items
 
 Review the printed list of kept text values before committing a fixture.
+
+It also writes .garmin-tokens/stats/<name>.json (local, not committed): for
+every series of at least 10 numbers, the minimum, maximum and, when there are
+only a few, the distinct values. That shows ranges, units and codes without
+exposing the series itself. Single values are left out, as their range would
+be the value.
 """
 
 import json
@@ -26,9 +34,13 @@ from typing import Any
 
 SAMPLES = Path(".garmin-tokens/samples")
 FIXTURES = Path("tests/fixtures/garmin")
+STATS = Path(".garmin-tokens/stats")
 FAKE_DAY = date(2026, 1, 15)
 MAX_ITEMS = 5
 EPOCH_MS_MIN = 10**11
+SENTINEL_MIN = -10
+SERIES_MIN_LENGTH = 10
+MAX_DISTINCT = 8
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DATETIME = re.compile(r"^(\d{4}-\d{2}-\d{2})([T ])(\d{2}:\d{2}:\d{2})(.*)$")
@@ -91,12 +103,58 @@ class Scrubber:
             return self.identifier(value)
         if value == 0 or (CODE_KEY.search(key) and abs(value) < 100):
             return value
-        return round(value * self.random.uniform(0.5, 1.5)) or 1
+        # Drawn before the sentinel check so the other values of a fixture do
+        # not depend on how many sentinels it contains.
+        factor = self.random.uniform(0.5, 1.5)
+        if is_sentinel(value):
+            return value
+        return round(value * factor) or 1
 
     def decimal(self, value: float, key: str) -> float:
         if COORDINATE_KEY.search(key):
             return 0.0
-        return round(value * self.random.uniform(0.5, 1.5), 2)
+        factor = self.random.uniform(0.5, 1.5)
+        if is_sentinel(value):
+            return value
+        return round(value * factor, 2)
+
+
+def is_sentinel(value: float) -> bool:
+    """Garmin marks unmeasured points with values such as -1 and -2."""
+    return SENTINEL_MIN <= value < 0 and value == int(value)
+
+
+def collect_series(value: Any, path: str, series: dict[str, list[float]]) -> None:
+    """Gather the numbers found at each path, with list positions collapsed."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            collect_series(item, f"{path}.{'*' if key.isdigit() else key}", series)
+    elif isinstance(value, list):
+        for item in value:
+            if isinstance(item, list):
+                # Pairs such as [timestamp, value] keep their position.
+                for index, element in enumerate(item):
+                    collect_series(element, f"{path}[][{index}]", series)
+            else:
+                collect_series(item, f"{path}[]", series)
+    elif isinstance(value, int | float) and not isinstance(value, bool):
+        series.setdefault(path, []).append(value)
+
+
+def series_stats(real: Any) -> dict[str, dict[str, Any]]:
+    series: dict[str, list[float]] = {}
+    collect_series(real, "", series)
+    stats: dict[str, dict[str, Any]] = {}
+    for path, values in sorted(series.items()):
+        if len(values) < SERIES_MIN_LENGTH or min(values) >= EPOCH_MS_MIN:
+            continue
+        entry: dict[str, Any] = {"count": len(values), "min": min(values), "max": max(values)}
+        distinct = sorted(set(values))
+        if len(distinct) <= MAX_DISTINCT:
+            entry["distinct"] = distinct
+        entry["sentinels"] = sorted({v for v in values if is_sentinel(v)})
+        stats[path] = entry
+    return stats
 
 
 def newest_date(value: Any) -> date | None:
@@ -118,6 +176,7 @@ def main() -> None:
     if not names:
         raise SystemExit(__doc__)
     FIXTURES.mkdir(parents=True, exist_ok=True)
+    STATS.mkdir(parents=True, exist_ok=True)
     for name in names:
         real = json.loads((SAMPLES / f"{name}.json").read_text(encoding="utf-8"))
         scrubber = Scrubber(seed=name, newest=newest_date(real) or FAKE_DAY)
@@ -125,6 +184,8 @@ def main() -> None:
         target = FIXTURES / f"{name}.json"
         target.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8", newline="\n")
         print(f"{target}: kept text values {sorted(scrubber.kept_text)}")
+        stats = STATS / f"{name}.json"
+        stats.write_text(json.dumps(series_stats(real), indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

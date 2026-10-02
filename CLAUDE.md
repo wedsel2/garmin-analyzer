@@ -51,6 +51,9 @@ Review the generated file: drop enum types in `downgrade`, and name constraints.
   `uv run scripts/scrub_fixture.py <endpoint>`. It keeps structure and formats
   but replaces every value. Never copy a real response into the repository, and
   review the text values the script reports as kept before committing.
+  The script also writes `.garmin-tokens/stats/<endpoint>.json` with the range and
+  distinct codes of each number series; read that, not the samples, to learn
+  units, codes and "not measured" sentinels such as -1 and -2.
 - **This repository is public.** Never commit or log Garmin credentials, tokens,
   `.env`, or real health data. `.garmin-tokens/` is local only.
 - **Every table that holds user data has a `user_id`**, and every query filters on it.

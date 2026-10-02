@@ -187,7 +187,7 @@
   "wellnessEpochRespirationAveragesList": [
     {
       "epochEndTimestampGmt": 1768430400000,
-      "respirationAverageValue": -1.41,
+      "respirationAverageValue": -1.0,
       "respirationHighValue": null,
       "respirationLowValue": null
     },
