@@ -85,7 +85,9 @@ Two layers, see [ADR 10](adr/0010-raw-payloads-plus-normalised-tables.md):
 - **Normalised**: typed tables per metric family, derived from the raw layer by
   the parsers in `normalise.py`. So far: daily summaries, sleep sessions, HRV
   summaries, and intraday samples for heart rate, stress, body battery,
-  respiration, HRV and steps. Still to come: training metrics and activities.
+  respiration, HRV and steps, plus training readiness, training status, VO2
+  max, race predictions, fitness age and power thresholds. Still to come:
+  activities.
   Garmin marks unmeasured points with negative numbers; parsers drop them.
 
 Schema changes are Alembic migrations, applied on start-up of the `web` service.

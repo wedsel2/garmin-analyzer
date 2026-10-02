@@ -76,8 +76,10 @@ class Scrubber:
         return self.decimal(value, key)
 
     def key(self, key: str) -> str:
-        # Maps keyed by an id, such as a device id.
-        return str(self.identifier(key)) if key.isdigit() else key
+        # Maps keyed by an id, such as a device id, or by a date.
+        if key.isdigit():
+            return str(self.identifier(key))
+        return self.text(key, "") if DATE.match(key) else key
 
     def text(self, value: str, key: str) -> str:
         if DATE.match(value):

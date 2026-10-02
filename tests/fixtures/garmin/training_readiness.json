@@ -1,0 +1,33 @@
+[
+  {
+    "userProfilePK": 1,
+    "calendarDate": "2026-01-14",
+    "timestamp": "2026-01-15T05:51:55.0",
+    "timestampLocal": "2026-01-15T07:51:55.0",
+    "deviceId": 2,
+    "level": "LOW",
+    "feedbackLong": "LOW_RT_HIGH_SS_GOOD_OR_MOD",
+    "feedbackShort": "HIGH_RECOVERY_NEEDS",
+    "score": 45,
+    "sleepScore": 68,
+    "sleepScoreFactorPercent": 49,
+    "sleepScoreFactorFeedback": "MODERATE",
+    "recoveryTime": 1397,
+    "recoveryTimeFactorPercent": 38,
+    "recoveryTimeFactorFeedback": "POOR",
+    "acwrFactorPercent": 74,
+    "acwrFactorFeedback": "GOOD",
+    "acuteLoad": 945,
+    "stressHistoryFactorPercent": 44,
+    "stressHistoryFactorFeedback": "MODERATE",
+    "hrvFactorPercent": 73,
+    "hrvFactorFeedback": "VERY_GOOD",
+    "hrvWeeklyAverage": 37,
+    "sleepHistoryFactorPercent": 94,
+    "sleepHistoryFactorFeedback": "MODERATE",
+    "validSleep": true,
+    "inputContext": null,
+    "primaryActivityTracker": true,
+    "recoveryTimeChangePhrase": "NO_CHANGE_SLEEP"
+  }
+]

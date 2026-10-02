@@ -17,13 +17,28 @@ from garmin_analyzer.models import (
     Base,
     BodyBatterySample,
     DailySummary,
+    FitnessAge,
     HeartRateSample,
     HrvReading,
     HrvSummary,
+    PowerThreshold,
+    RacePrediction,
     RespirationSample,
     SleepSession,
     StepInterval,
     StressSample,
+    TrainingReadiness,
+    TrainingStatus,
+    Vo2Max,
+)
+from garmin_analyzer.normalise_training import (
+    fitness_age_rows,
+    power_threshold_rows,
+    race_prediction_rows,
+    training_readiness_rows,
+    training_status_rows,
+    vo2max_from_training_status_rows,
+    vo2max_rows,
 )
 
 Row = dict[str, Any]
@@ -237,6 +252,16 @@ NORMALISERS: dict[str, list[tuple[type[Base], Parser]]] = {
     "respiration_data": [(RespirationSample, respiration_rows)],
     "hrv_data": [(HrvSummary, hrv_summary_rows), (HrvReading, hrv_reading_rows)],
     "steps_data": [(StepInterval, step_interval_rows)],
+    "training_readiness": [(TrainingReadiness, training_readiness_rows)],
+    "training_status": [
+        (TrainingStatus, training_status_rows),
+        (Vo2Max, vo2max_from_training_status_rows),
+    ],
+    "max_metrics": [(Vo2Max, vo2max_rows)],
+    "race_predictions": [(RacePrediction, race_prediction_rows)],
+    "fitnessage_data": [(FitnessAge, fitness_age_rows)],
+    "cycling_ftp": [(PowerThreshold, power_threshold_rows)],
+    "lactate_threshold": [(PowerThreshold, power_threshold_rows)],
 }
 
 
@@ -248,6 +273,8 @@ def normalise(session: Session, user_id: uuid.UUID, endpoint: str, payload: Any)
         if not rows:
             continue
         keys = sorted(column.name for column in model.__table__.primary_key)
+        # One statement cannot update the same row twice; the last entry wins.
+        rows = list({tuple(row[key] for key in keys): row for row in rows}.values())
         statement = insert(model).values(rows)
         updates = {name: statement.excluded[name] for name in rows[0] if name not in keys}
         session.execute(statement.on_conflict_do_update(index_elements=keys, set_=updates))
