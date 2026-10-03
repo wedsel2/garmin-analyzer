@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Iterator
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 from garmin_analyzer import links
@@ -160,6 +160,22 @@ def test_only_one_sync_per_user_at_a_time(session: Session, user: User, db: Engi
             pass
 
     # Released when the sync ends.
+    with links.sync_lock(session, user.id):
+        pass
+
+
+def test_a_lost_lock_connection_does_not_fail_the_sync(session: Session, user: User) -> None:
+    with links.sync_lock(session, user.id):
+        # The database closed the connection that holds the lock.
+        session.execute(
+            text(
+                "SELECT pg_terminate_backend(pid) FROM pg_locks "
+                "WHERE locktype = 'advisory' AND pid <> pg_backend_pid()"
+            )
+        )
+        session.commit()
+
+    # Ending that connection released the lock.
     with links.sync_lock(session, user.id):
         pass
 

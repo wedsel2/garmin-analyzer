@@ -52,16 +52,19 @@ class RateLimited(GarminError):
     """Garmin asked us to slow down. Stop and try again later."""
 
 
-def login_failure(error: GarminConnectAuthenticationError) -> Exception:
+def login_failure(error: GarminConnectAuthenticationError, tokens_loaded: bool) -> Exception:
     """Tell rejected tokens apart from a login that failed for another reason.
 
     The library reports every failure to load the profile as an authentication
-    error, also when Garmin was unreachable or busy. Only a 401 answer, or
-    tokens the library could not use at all, means the user has to link again.
+    error, also when Garmin was unreachable, busy or answered oddly. Only a 401
+    answer, or tokens the library could not load at all, means the user has to
+    link again.
     """
+    if not tokens_loaded:
+        return RelinkRequired(str(error))
     cause = error.__cause__
     if cause is None:
-        return RelinkRequired(str(error))
+        return GarminError(str(error))
     status = API_STATUS.search(str(cause))
     code = status.group(1) if status else None
     if code == "401":
@@ -112,7 +115,7 @@ class GarminSession:
         try:
             api.login(tokenstore=tokens)
         except GarminConnectAuthenticationError as error:
-            raise login_failure(error) from error
+            raise login_failure(error, bool(api.client.is_authenticated)) from error
         except GarminConnectTooManyRequestsError as error:
             raise RateLimited(str(error)) from error
         except (GarminConnectConnectionError, HTTPError) as error:

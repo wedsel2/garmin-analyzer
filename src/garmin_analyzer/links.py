@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from garmin_analyzer.garmin import GarminSession, RelinkRequired
@@ -39,8 +40,14 @@ def sync_lock(session: Session, user_id: uuid.UUID) -> Iterator[None]:
         try:
             yield
         finally:
-            connection.execute(select(func.pg_advisory_unlock(key)))
-            connection.commit()
+            # A sync can take hours and this connection may be gone by then.
+            # Closing it for good releases the lock too, and a failure here
+            # must not turn a finished sync into a failed one.
+            try:
+                connection.execute(select(func.pg_advisory_unlock(key)))
+                connection.commit()
+            except SQLAlchemyError:
+                connection.invalidate()
 
 
 def store_link(
