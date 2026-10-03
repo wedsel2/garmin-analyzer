@@ -1,8 +1,12 @@
 """Storing and using the Garmin link of a user."""
 
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 
+from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from garmin_analyzer.garmin import GarminSession, RelinkRequired
@@ -12,6 +16,38 @@ from garmin_analyzer.tokens import TokenCipher
 
 class NotLinked(Exception):
     """The user has no Garmin link."""
+
+
+class AlreadySyncing(Exception):
+    """Another sync of the same user is running."""
+
+
+@contextmanager
+def sync_lock(session: Session, user_id: uuid.UUID) -> Iterator[None]:
+    """Allow one sync per user at a time. Raises AlreadySyncing when one is running.
+
+    Two syncs would each refresh the tokens and the last to finish would store
+    its own, which Garmin may no longer accept. The lock is held on a
+    connection of its own, as the session commits many times during a sync,
+    and PostgreSQL drops it when the process dies.
+    """
+    key = func.hashtextextended(f"garmin-sync:{user_id}", 0)
+    with session.get_bind().engine.connect() as connection:
+        locked = connection.scalar(select(func.pg_try_advisory_lock(key)))
+        connection.commit()
+        if not locked:
+            raise AlreadySyncing(f"another sync of user {user_id} is running")
+        try:
+            yield
+        finally:
+            # A sync can take hours and this connection may be gone by then.
+            # Closing it for good releases the lock too, and a failure here
+            # must not turn a finished sync into a failed one.
+            try:
+                connection.execute(select(func.pg_advisory_unlock(key)))
+                connection.commit()
+            except SQLAlchemyError:
+                connection.invalidate()
 
 
 def store_link(
@@ -34,6 +70,7 @@ def open_link(session: Session, user_id: uuid.UUID, cipher: TokenCipher) -> Garm
 
     When Garmin rejects the tokens, the link is marked as needing a new sign-in
     and RelinkRequired is raised. Nothing retries against the sign-in site.
+    When Garmin accepts them, a link that was marked is active again.
     """
     link = session.get(GarminLink, user_id)
     if link is None:
@@ -43,6 +80,8 @@ def open_link(session: Session, user_id: uuid.UUID, cipher: TokenCipher) -> Garm
     except RelinkRequired as error:
         mark_needs_relink(session, user_id, str(error))
         raise
+    link.status = LinkStatus.ACTIVE
+    link.last_error = None
     save_tokens(session, user_id, cipher, garmin)
     return garmin
 
@@ -50,9 +89,11 @@ def open_link(session: Session, user_id: uuid.UUID, cipher: TokenCipher) -> Garm
 def save_tokens(
     session: Session, user_id: uuid.UUID, cipher: TokenCipher, garmin: GarminSession
 ) -> None:
-    """Persist the tokens of a session, which a refresh may have replaced."""
+    """Persist the tokens of a session, when a refresh has replaced them."""
     link = session.get_one(GarminLink, user_id)
-    link.encrypted_tokens = cipher.encrypt(garmin.tokens())
+    tokens = garmin.tokens()
+    if cipher.decrypt(link.encrypted_tokens) != tokens:
+        link.encrypted_tokens = cipher.encrypt(tokens)
 
 
 def mark_needs_relink(session: Session, user_id: uuid.UUID, reason: str) -> None:

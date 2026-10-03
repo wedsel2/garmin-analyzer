@@ -97,6 +97,13 @@ An empty answer is stored, so it is not asked for again; a failed request is
 not, so the next sync retries it. A sync that is interrupted or rate-limited
 keeps what it fetched and the next one continues from there. If Garmin rejects
 the tokens, the link is marked as needing a new sign-in and nothing retries.
+Only a 401 answer counts as a rejection: when Garmin is unreachable or busy the
+link stays active and the next sync tries again.
+
+Refreshed tokens are stored with every commit of a sync, not only at its end,
+so a sync that is killed does not lose them. A PostgreSQL advisory lock allows
+one sync per user at a time; a second one is skipped. A failure for one user
+does not stop the sync of the others.
 
 A scheduled worker that runs this for every linked user comes with the web
 foundation; until then `collect` is run by hand or by cron.

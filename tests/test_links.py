@@ -2,13 +2,13 @@ import uuid
 from collections.abc import Iterator
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 from garmin_analyzer import links
 from garmin_analyzer.db import make_session_factory
 from garmin_analyzer.garmin import GarminSession, RelinkRequired
-from garmin_analyzer.links import NotLinked, open_link, store_link
+from garmin_analyzer.links import AlreadySyncing, NotLinked, open_link, store_link
 from garmin_analyzer.models import GarminLink, LinkStatus, User
 from garmin_analyzer.tokens import TokenCipher, generate_key
 
@@ -114,6 +114,70 @@ def test_rejected_tokens_mark_the_link_for_relinking(
     assert link.last_error == "Garmin rejected the tokens"
     # The old tokens are kept; only a successful new link replaces them.
     assert cipher.decrypt(link.encrypted_tokens) == "stored-tokens"
+
+
+def test_accepted_tokens_make_a_marked_link_active_again(
+    session: Session, user: User, cipher: TokenCipher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store_link(session, user.id, cipher, StubGarmin("stored-tokens"))
+    links.mark_needs_relink(session, user.id, "marked during an outage")
+    session.commit()
+    monkeypatch.setattr(GarminSession, "from_tokens", StubGarmin)
+
+    open_link(session, user.id, cipher)
+    session.commit()
+    session.expire_all()
+
+    link = session.get_one(GarminLink, user.id)
+    assert (link.status, link.last_error) == (LinkStatus.ACTIVE, None)
+
+
+def test_unchanged_tokens_are_not_written_again(
+    session: Session, user: User, cipher: TokenCipher
+) -> None:
+    garmin = StubGarmin("stored-tokens")
+    store_link(session, user.id, cipher, garmin)
+    session.commit()
+    stored = session.get_one(GarminLink, user.id).encrypted_tokens
+
+    links.save_tokens(session, user.id, cipher, garmin)
+
+    assert session.get_one(GarminLink, user.id).encrypted_tokens == stored
+    assert not session.dirty
+
+
+def test_only_one_sync_per_user_at_a_time(session: Session, user: User, db: Engine) -> None:
+    other_user = uuid.uuid7()
+    with links.sync_lock(session, user.id):
+        with (
+            make_session_factory(db)() as second,
+            pytest.raises(AlreadySyncing),
+            links.sync_lock(second, user.id),
+        ):
+            pass
+        # Another user is not held up.
+        with links.sync_lock(session, other_user):
+            pass
+
+    # Released when the sync ends.
+    with links.sync_lock(session, user.id):
+        pass
+
+
+def test_a_lost_lock_connection_does_not_fail_the_sync(session: Session, user: User) -> None:
+    with links.sync_lock(session, user.id):
+        # The database closed the connection that holds the lock.
+        session.execute(
+            text(
+                "SELECT pg_terminate_backend(pid) FROM pg_locks "
+                "WHERE locktype = 'advisory' AND pid <> pg_backend_pid()"
+            )
+        )
+        session.commit()
+
+    # Ending that connection released the lock.
+    with links.sync_lock(session, user.id):
+        pass
 
 
 def test_user_without_a_link_cannot_be_opened(session: Session, cipher: TokenCipher) -> None:

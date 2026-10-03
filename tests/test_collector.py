@@ -20,7 +20,7 @@ from garmin_analyzer.collector import (
 )
 from garmin_analyzer.db import make_session_factory
 from garmin_analyzer.garmin import GarminError, GarminSession, RateLimited, RelinkRequired
-from garmin_analyzer.links import NotLinked, store_link
+from garmin_analyzer.links import AlreadySyncing, NotLinked, store_link, sync_lock
 from garmin_analyzer.models import (
     Activity,
     ActivityZone,
@@ -421,6 +421,42 @@ def test_tokens_are_saved_even_when_the_sync_fails_unexpectedly(
     link = session.get_one(GarminLink, user.id)
     assert cipher.decrypt(link.encrypted_tokens) == "tokens-refreshed-mid-sync"
     assert link.last_synced_at is None
+
+
+def test_refreshed_tokens_are_stored_during_the_sync_not_only_at_its_end(
+    session: Session, user: User, cipher: TokenCipher, linked: FakeGarmin, db: Engine
+) -> None:
+    stored_midway: list[str] = []
+
+    def refresh_then_look(method: str, *args: Any) -> Any:
+        if method == "get_user_profile":
+            # The library refreshes the tokens on the first request.
+            linked.current_tokens = "tokens-refreshed-mid-sync"
+        if method == "get_activities_by_date":
+            # What a sync killed at this point would leave behind.
+            with Session(db) as other:
+                stored_midway.append(
+                    cipher.decrypt(other.get_one(GarminLink, user.id).encrypted_tokens)
+                )
+        return FakeGarmin.call(linked, method, *args)
+
+    linked.call = refresh_then_look  # type: ignore[method-assign]
+    run(session, user, cipher)
+
+    assert stored_midway == ["tokens-refreshed-mid-sync"]
+
+
+def test_a_user_who_is_being_synced_is_not_synced_twice(
+    session: Session, user: User, cipher: TokenCipher, linked: FakeGarmin, db: Engine
+) -> None:
+    with (
+        make_session_factory(db)() as other,
+        sync_lock(other, user.id),
+        pytest.raises(AlreadySyncing),
+    ):
+        run(session, user, cipher)
+
+    assert linked.calls == []
 
 
 # Weekly catch-up: days that were stored empty get a second chance.
