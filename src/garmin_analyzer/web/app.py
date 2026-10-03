@@ -10,6 +10,7 @@ from typing import Annotated
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, FastAPI, Form, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -52,7 +53,9 @@ SETUP_LOCK = 4_815_162_342
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
-        "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        # The component kit draws some icons from data: addresses in the stylesheet.
+        "default-src 'self'; img-src 'self' data:; base-uri 'self'; form-action 'self'; "
+        "frame-ancestors 'none'"
     ),
     "Referrer-Policy": "same-origin",
     "X-Content-Type-Options": "nosniff",
@@ -265,6 +268,8 @@ def create_app(engine: Engine) -> FastAPI:
         FAILED_SIGN_INS_PER_ADDRESS, SIGN_IN_PERIOD_SECONDS
     )
     app.middleware("http")(protect)
+    # The stylesheet holds the whole component kit and shrinks to a fraction.
+    app.add_middleware(GZipMiddleware)
     app.add_exception_handler(SignInRequired, to_sign_in)
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     app.include_router(router)

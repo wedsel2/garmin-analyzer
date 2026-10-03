@@ -3,8 +3,8 @@
 Target design. What exists today is the pipeline, the database schema, the
 collector run from the command line (`user-add`, `link` and `collect`), and the
 start of the web interface: `serve`, setting up the first account, and signing
-in. Invites, linking Garmin in the browser, styling, dashboards and the
-scheduled worker are next. See the [roadmap](roadmap.md) for
+in, with the base layout and styling. Invites, linking Garmin in the browser,
+dashboards and the scheduled worker are next. See the [roadmap](roadmap.md) for
 the order of work and the [decision records](adr/README.md) for the reasoning.
 
 ## Goal
@@ -51,6 +51,11 @@ from the same JSON API a future native client would use. A web app manifest and
 service worker make the site installable on Android. No Node toolchain: front-end
 libraries are vendored static files and the stylesheet is compiled with the
 standalone Tailwind binary during the image build. See [ADR 7](adr/0007-web-app-fastapi-server-rendered.md).
+
+The build stage fetches the Tailwind binary and the DaisyUI plugin from their
+GitHub releases at a pinned version and checksum, and compiles `styles/app.css`
+against the templates. Neither file is in the repository. The pages follow the
+light or dark setting of the device.
 
 ## Users and access
 

@@ -255,12 +255,20 @@ def test_pages_carry_security_headers_and_are_not_cached(client: TestClient) -> 
 
     assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
     assert "default-src 'self'" in page.headers["content-security-policy"]
+    assert "script-src" not in page.headers["content-security-policy"]
     assert page.headers["x-content-type-options"] == "nosniff"
     assert page.headers["cache-control"] == "no-store"
 
-    stylesheet = client.get("/static/app.css")
-    assert stylesheet.status_code == 200
-    assert stylesheet.headers.get("cache-control") != "no-store"
+    icon = client.get("/static/icon.svg")
+    assert icon.status_code == 200
+    assert icon.headers.get("cache-control") != "no-store"
+
+
+def test_answers_are_compressed_for_browsers_that_accept_it(client: TestClient) -> None:
+    page = client.get("/setup", headers={"Accept-Encoding": "gzip"})
+
+    assert page.headers["content-encoding"] == "gzip"
+    assert "Create the administrator account" in page.text
 
 
 def test_input_is_escaped_on_the_page(client: TestClient, account: User) -> None:
