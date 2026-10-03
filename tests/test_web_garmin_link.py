@@ -116,13 +116,17 @@ def test_a_refused_ticket_is_explained_and_nothing_is_stored(
     assert stored_link(db) is None
 
 
-def test_an_address_without_a_ticket_never_reaches_garmin(client: TestClient, db: Engine) -> None:
-    # Not faked: without a ticket the real exchange stops before any request.
-    page = client.post("/garmin/link", data={"address": "https://sso.garmin.com/sso/embed"})
+def test_an_address_without_a_ticket_is_not_an_attempt(
+    client: TestClient, db: Engine, pasted: list[str]
+) -> None:
+    for _ in range(LINK_ATTEMPTS + 1):
+        page = client.post("/garmin/link", data={"address": "https://sso.garmin.com/sso/embed"})
+        assert page.status_code == 400
+        assert "No ticket found" in page.text
 
-    assert page.status_code == 400
-    assert "No ticket found" in page.text
+    assert pasted == []
     assert stored_link(db) is None
+    assert client.post("/garmin/link", data={"address": PASTED}).status_code == 303
 
 
 def test_linking_again_makes_a_link_that_needed_it_active(
