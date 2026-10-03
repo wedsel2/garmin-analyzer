@@ -1,8 +1,9 @@
 # Architecture
 
-Target design. What exists today is only the pipeline skeleton; see the
-[roadmap](roadmap.md) for the order of work and the [decision records](adr/README.md)
-for the reasoning.
+Target design. What exists today is the pipeline, the database schema and the
+collector, run from the command line: `user-add`, `link` and `collect`. The web
+interface and the scheduled worker are next. See the [roadmap](roadmap.md) for
+the order of work and the [decision records](adr/README.md) for the reasoning.
 
 ## Goal
 
