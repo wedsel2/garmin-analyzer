@@ -6,7 +6,7 @@
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <form method="post" action="/setup">
   <label for="email">Email address</label>
-  <input id="email" name="email" type="email" value="{{ email }}" autocomplete="username" required autofocus>
+  <input id="email" name="email" type="email" value="{{ email }}" autocomplete="username" required>
   <label for="password">Password</label>
   <input id="password" name="password" type="password" autocomplete="new-password" minlength="{{ min_length }}" required>
   <p class="hint">At least {{ min_length }} characters.</p>

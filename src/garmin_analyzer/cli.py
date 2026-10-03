@@ -31,6 +31,7 @@ from garmin_analyzer.users import UserError, add_user, find_user, set_password
 from garmin_analyzer.web.app import create_app
 
 DEFAULT_DAYS = 3
+SCHEMA_BEHIND = "database schema is not up to date, run: garmin-analyzer migrate"
 
 
 def healthcheck(engine: Engine, args: argparse.Namespace) -> int:
@@ -38,7 +39,7 @@ def healthcheck(engine: Engine, args: argparse.Namespace) -> int:
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
     if not migrate.is_up_to_date(engine):
-        print("database schema is not up to date, run: garmin-analyzer migrate", file=sys.stderr)
+        print(SCHEMA_BEHIND, file=sys.stderr)
         return 1
     print("ok")
     return 0
@@ -155,6 +156,9 @@ def collect(engine: Engine, args: argparse.Namespace) -> int:
 
 
 Handler = Callable[[Engine, argparse.Namespace], int]
+# The other commands read or write tables, and say so when those are missing
+# instead of failing on the first statement.
+WORKS_ON_ANY_SCHEMA = (healthcheck, run_migrations, serve)
 
 
 def positive_int(text: str) -> int:
@@ -220,6 +224,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(exc, file=sys.stderr)
         return 2
     try:
+        if args.handler not in WORKS_ON_ANY_SCHEMA and not migrate.is_up_to_date(engine):
+            print(SCHEMA_BEHIND, file=sys.stderr)
+            return 1
         code: int = args.handler(engine, args)
         return code
     except ConfigError as exc:

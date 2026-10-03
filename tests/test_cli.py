@@ -94,3 +94,18 @@ def test_serve_migrates_and_then_runs_the_web_interface(
         "port": 8123,
         "proxy_headers": True,
     }
+
+
+@pytest.mark.parametrize(
+    "command",
+    [["user-add", "runner@example.com"], ["user-password", "runner@example.com"], ["collect"]],
+)
+def test_commands_that_use_tables_ask_for_migrations_first(
+    empty_db: Engine, capsys: pytest.CaptureFixture[str], command: list[str]
+) -> None:
+    migrate.upgrade(empty_db, "0007")
+
+    assert cli.main(command) == 1
+    assert capsys.readouterr().err == (
+        "database schema is not up to date, run: garmin-analyzer migrate\n"
+    )

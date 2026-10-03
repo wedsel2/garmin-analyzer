@@ -26,6 +26,9 @@ docker compose run --rm web collect --days 7
 `user-add <email>` creates further accounts and `user-password <email>` sets a
 password, also when you have lost yours.
 
+After updating the image, `docker compose up --detach` applies new migrations.
+The other commands refuse to run until that, or `migrate`, has been done.
+
 `collect` without an email syncs every linked user. Run it again at any time: it
 fetches the last two days anew and only what is still missing before that. Once
 a week it also fetches the last two weeks again, so days your watch uploaded
