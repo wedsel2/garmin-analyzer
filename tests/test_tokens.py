@@ -31,9 +31,30 @@ def test_tampered_tokens_are_rejected() -> None:
         cipher.decrypt(bytes(encrypted))
 
 
-def test_invalid_key_is_a_configuration_error() -> None:
+@pytest.mark.parametrize("keys", ["not-a-key", "{key},not-a-key"])
+def test_invalid_key_is_a_configuration_error(keys: str) -> None:
     with pytest.raises(ConfigError, match="generate-key"):
-        TokenCipher("not-a-key")
+        TokenCipher(keys.format(key=generate_key()))
+
+
+def test_a_setting_without_any_key_is_a_configuration_error() -> None:
+    with pytest.raises(ConfigError, match="holds no key"):
+        TokenCipher(" , ")
+
+
+def test_replacing_the_key_keeps_old_tokens_readable() -> None:
+    old_key, new_key = generate_key(), generate_key()
+    old = TokenCipher(old_key).encrypt(TOKENS)
+    rotating = TokenCipher(f"{new_key}, {old_key}")
+
+    assert rotating.decrypt(old) == TOKENS
+    assert not rotating.is_current(old)
+    # New tokens are written with the first key only, so the old one can go.
+    renewed = rotating.encrypt(TOKENS)
+    assert rotating.is_current(renewed)
+    assert TokenCipher(new_key).decrypt(renewed) == TOKENS
+    with pytest.raises(TokenDecryptError):
+        TokenCipher(old_key).decrypt(renewed)
 
 
 def test_key_is_read_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:

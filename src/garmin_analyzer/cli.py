@@ -21,7 +21,7 @@ from garmin_analyzer.garmin import (
     LinkError,
     RelinkRequired,
 )
-from garmin_analyzer.links import AlreadySyncing, NotLinked, store_link
+from garmin_analyzer.links import AlreadySyncing, NotLinked, store_link, sync_lock
 from garmin_analyzer.models import GarminLink, LinkStatus, User
 from garmin_analyzer.tokens import TokenCipher, TokenDecryptError, generate_key
 from garmin_analyzer.users import UserError, add_user, find_user
@@ -60,13 +60,22 @@ def link(engine: Engine, args: argparse.Namespace) -> int:
     cipher = TokenCipher(token_encryption_key())
     with make_session_factory(engine)() as session:
         user = find_user(session, args.email)
-        print("1. Open this address in your browser and sign in to Garmin:\n")
-        print(f"   {SIGN_IN_URL}\n")
-        print("2. Copy the full address shown after signing in (it contains")
-        print("   ticket=ST-...) and paste it here within a minute.\n")
-        garmin = GarminSession.from_ticket(input("Address: "))
-        store_link(session, user.id, cipher, garmin)
+        # Nothing is held open in the database while the user signs in.
         session.commit()
+        try:
+            # A running sync would store its own tokens over the new ones when
+            # it ends, so linking waits for it, and no sync starts meanwhile.
+            with sync_lock(session, user.id):
+                print("1. Open this address in your browser and sign in to Garmin:\n")
+                print(f"   {SIGN_IN_URL}\n")
+                print("2. Copy the full address shown after signing in (it contains")
+                print("   ticket=ST-...) and paste it here within a minute.\n")
+                garmin = GarminSession.from_ticket(input("Address: "))
+                store_link(session, user.id, cipher, garmin)
+                session.commit()
+        except AlreadySyncing:
+            print(f"{user.email} is being synced; link again when that has ended", file=sys.stderr)
+            return 1
         print(f"linked Garmin for {user.email}")
     return 0
 

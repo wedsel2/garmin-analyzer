@@ -13,6 +13,11 @@ from garmin_analyzer.garmin import GarminSession, RelinkRequired
 from garmin_analyzer.models import GarminLink, LinkStatus
 from garmin_analyzer.tokens import TokenCipher
 
+OTHER_ACCOUNT = (
+    "the link is to another Garmin account than the one this user's data came from; "
+    "link the original account again"
+)
+
 
 class NotLinked(Exception):
     """The user has no Garmin link."""
@@ -53,7 +58,11 @@ def sync_lock(session: Session, user_id: uuid.UUID) -> Iterator[None]:
 def store_link(
     session: Session, user_id: uuid.UUID, cipher: TokenCipher, garmin: GarminSession
 ) -> GarminLink:
-    """Create or replace the link of a user with freshly obtained tokens."""
+    """Create or replace the link of a user with freshly obtained tokens.
+
+    The Garmin account a link was first used with stays on record; open_link
+    refuses tokens of another account.
+    """
     link = session.get(GarminLink, user_id)
     if link is None:
         link = GarminLink(user_id=user_id, encrypted_tokens=b"")
@@ -80,6 +89,13 @@ def open_link(session: Session, user_id: uuid.UUID, cipher: TokenCipher) -> Garm
     except RelinkRequired as error:
         mark_needs_relink(session, user_id, str(error))
         raise
+    account = garmin.account_id()
+    if link.garmin_account_id is None:
+        link.garmin_account_id = account
+    elif account is not None and account != link.garmin_account_id:
+        # Nothing is fetched: it would end up among the data of someone else.
+        mark_needs_relink(session, user_id, OTHER_ACCOUNT)
+        raise RelinkRequired(OTHER_ACCOUNT)
     link.status = LinkStatus.ACTIVE
     link.last_error = None
     save_tokens(session, user_id, cipher, garmin)
@@ -89,10 +105,11 @@ def open_link(session: Session, user_id: uuid.UUID, cipher: TokenCipher) -> Garm
 def save_tokens(
     session: Session, user_id: uuid.UUID, cipher: TokenCipher, garmin: GarminSession
 ) -> None:
-    """Persist the tokens of a session, when a refresh has replaced them."""
+    """Persist the tokens of a session, when a refresh or a new key calls for it."""
     link = session.get_one(GarminLink, user_id)
     tokens = garmin.tokens()
-    if cipher.decrypt(link.encrypted_tokens) != tokens:
+    stored = link.encrypted_tokens
+    if not cipher.is_current(stored) or cipher.decrypt(stored) != tokens:
         link.encrypted_tokens = cipher.encrypt(tokens)
 
 

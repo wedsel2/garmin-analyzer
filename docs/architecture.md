@@ -74,7 +74,14 @@ See [ADR 8](adr/0008-built-in-accounts-and-invites.md).
 
 Scripted sign-in is never used: Garmin blocks it and bans the IP address.
 
-See [ADR 9](adr/0009-garmin-client-and-token-storage.md) and the
+A link stays bound to the Garmin account it was first synced with. Tokens of
+another account are refused before anything is fetched, so two people's data
+cannot end up under one user. The encryption key can be replaced by listing
+the new key before the old one until every link has been synced once.
+
+See [ADR 9](adr/0009-garmin-client-and-token-storage.md),
+[ADR 13](adr/0013-link-bound-to-one-garmin-account.md),
+[ADR 14](adr/0014-token-key-rotation.md) and the
 [spike findings](garmin-spike.md).
 
 ## Collection
