@@ -56,6 +56,6 @@ def use_link(db: Session, token: str, password: str, now: datetime | None = None
     user = link_user(db, token, now, for_update=True)
     if user is None:
         return None
+    # Also removes the link.
     set_password(db, user, password)
-    db.execute(delete(PasswordLink).where(PasswordLink.user_id == user.id))
     return user

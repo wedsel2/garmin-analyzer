@@ -25,6 +25,7 @@ invites and resets was left open.
 - The address of a link is shown to the administrator once, on the page that
   made it.
 - Using a link ends every session of that account, as any password change does.
+  Any password change, also with `user-password`, cancels an outstanding link.
 - Only the administrator manages users: invite, new password link, remove.
   Removing a user removes everything stored for them and asks for confirmation
   first. The administrator cannot remove their own account. The page shows
@@ -48,6 +49,9 @@ invites and resets was left open.
   in the browser history of the person who used it. It is worthless after use
   or after 7 days, and whoever can read the server's log can already set
   passwords with `user-password`.
+- The page showing a new link is the answer to a form post. Reloading it and
+  confirming the browser's question makes another link, which replaces the one
+  just shown.
 - An invited address is taken from the moment of the invite. A mistyped
   address is corrected by removing the account and inviting again.
 - The link's address is built from the request, so behind a proxy whose
