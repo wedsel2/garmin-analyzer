@@ -210,6 +210,16 @@ def test_rate_limited_exchange_is_a_link_error(monkeypatch: pytest.MonkeyPatch) 
         GarminSession.from_ticket(PASTED)
 
 
+def test_account_is_known_once_the_library_has_loaded_the_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert GarminSession.from_ticket(PASTED).account_id() is None
+
+    monkeypatch.setattr(FakeGarmin, "profile_id", 1234, raising=False)
+
+    assert GarminSession.from_tokens(TOKENS).account_id() == 1234
+
+
 def test_read_methods_can_be_called() -> None:
     session = GarminSession.from_tokens(TOKENS)
 

@@ -11,7 +11,7 @@ from garmin_analyzer import cli
 from garmin_analyzer.collector import SyncResult
 from garmin_analyzer.db import make_session_factory
 from garmin_analyzer.garmin import GarminSession, LinkError, RelinkRequired
-from garmin_analyzer.links import AlreadySyncing
+from garmin_analyzer.links import AlreadySyncing, sync_lock
 from garmin_analyzer.models import GarminLink, LinkStatus, User
 from garmin_analyzer.tokens import TokenCipher, generate_key
 
@@ -24,6 +24,9 @@ class StubGarmin(GarminSession):
 
     def tokens(self) -> str:
         return "linked-tokens"
+
+    def account_id(self) -> int | None:
+        return None
 
 
 @pytest.fixture
@@ -109,6 +112,25 @@ def test_link_reports_a_refused_ticket(
 
     assert cli.main(["link", "runner@example.com"]) == 1
     assert "Garmin refused the ticket" in capsys.readouterr().err
+    assert link_status(db, "runner@example.com") is None
+
+
+def test_link_waits_for_a_running_sync(
+    db: Engine, key: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli.main(["user-add", "runner@example.com"])
+
+    def not_reached(prompt: str) -> str:
+        raise AssertionError("the user must not sign in for a ticket that cannot be stored")
+
+    monkeypatch.setattr("builtins.input", not_reached)
+
+    with make_session_factory(db)() as other:
+        user_id = other.scalars(select(User.id)).one()
+        with sync_lock(other, user_id):
+            assert cli.main(["link", "runner@example.com"]) == 1
+
+    assert "is being synced" in capsys.readouterr().err
     assert link_status(db, "runner@example.com") is None
 
 

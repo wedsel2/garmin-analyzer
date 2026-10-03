@@ -18,6 +18,8 @@ the old one.
 | [10](0010-raw-payloads-plus-normalised-tables.md) | Store raw Garmin payloads plus normalised tables | Accepted |
 | [11](0011-compose-deployment-behind-cloudflare-tunnel.md) | Deploy with Docker Compose, publish through a Cloudflare tunnel | Accepted |
 | [12](0012-activities-stored-in-full.md) | Store activities in full, normalise summaries, laps and zones | Accepted |
+| [13](0013-link-bound-to-one-garmin-account.md) | A link stays bound to the Garmin account it was first used with | Accepted |
+| [14](0014-token-key-rotation.md) | The token encryption key can be replaced without linking again | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.

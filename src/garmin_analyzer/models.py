@@ -68,6 +68,9 @@ class GarminLink(Base):
     )
     # Garmin tokens as JSON, encrypted with TOKEN_ENCRYPTION_KEY. Never plaintext.
     encrypted_tokens: Mapped[bytes] = mapped_column(LargeBinary)
+    # Garmin's number for the account the data comes from, set by the first
+    # sync. Tokens of another account are refused. See ADR 13.
+    garmin_account_id: Mapped[int | None] = mapped_column(BigInteger)
     status: Mapped[LinkStatus] = mapped_column(
         Enum(LinkStatus, name="link_status", values_callable=lambda e: [m.value for m in e]),
         default=LinkStatus.ACTIVE,

@@ -53,6 +53,9 @@ class FakeGarmin(GarminSession):
     def tokens(self) -> str:
         return self.current_tokens
 
+    def account_id(self) -> int | None:
+        return 1234
+
     def call(self, method: str, *args: Any) -> Any:
         self.calls.append((method, *args))
         if method in self.failures:

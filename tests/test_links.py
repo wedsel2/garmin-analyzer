@@ -16,11 +16,15 @@ from garmin_analyzer.tokens import TokenCipher, generate_key
 class StubGarmin(GarminSession):
     """A Garmin session that holds tokens without a library behind it."""
 
-    def __init__(self, tokens: str) -> None:
+    def __init__(self, tokens: str, account: int | None = None) -> None:
         self._tokens = tokens
+        self._account = account
 
     def tokens(self) -> str:
         return self._tokens
+
+    def account_id(self) -> int | None:
+        return self._account
 
 
 @pytest.fixture
@@ -130,6 +134,77 @@ def test_accepted_tokens_make_a_marked_link_active_again(
 
     link = session.get_one(GarminLink, user.id)
     assert (link.status, link.last_error) == (LinkStatus.ACTIVE, None)
+
+
+def open_as(
+    monkeypatch: pytest.MonkeyPatch,
+    session: Session,
+    user: User,
+    cipher: TokenCipher,
+    account: int | None,
+) -> GarminLink:
+    """Open the link with tokens that Garmin says belong to the given account."""
+    monkeypatch.setattr(GarminSession, "from_tokens", lambda tokens: StubGarmin(tokens, account))
+    try:
+        open_link(session, user.id, cipher)
+    finally:
+        session.commit()
+        session.expire_all()
+    return session.get_one(GarminLink, user.id)
+
+
+def test_the_garmin_account_is_recorded_when_the_link_is_first_used(
+    session: Session, user: User, cipher: TokenCipher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Linking makes no request beyond the ticket exchange, so it does not know yet.
+    link = store_link(session, user.id, cipher, StubGarmin("stored-tokens"))
+    assert link.garmin_account_id is None
+
+    assert open_as(monkeypatch, session, user, cipher, 1234).garmin_account_id == 1234
+    # Linking the same account again keeps what is on record.
+    store_link(session, user.id, cipher, StubGarmin("new-tokens"))
+    assert open_as(monkeypatch, session, user, cipher, 1234).status is LinkStatus.ACTIVE
+
+
+def test_tokens_of_another_garmin_account_are_refused(
+    session: Session, user: User, cipher: TokenCipher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store_link(session, user.id, cipher, StubGarmin("stored-tokens"))
+    open_as(monkeypatch, session, user, cipher, 1234)
+    store_link(session, user.id, cipher, StubGarmin("tokens-of-someone-else"))
+
+    with pytest.raises(RelinkRequired, match="another Garmin account"):
+        open_as(monkeypatch, session, user, cipher, 9999)
+
+    link = session.get_one(GarminLink, user.id)
+    assert link.status is LinkStatus.NEEDS_RELINK
+    assert link.garmin_account_id == 1234
+    assert link.last_error == links.OTHER_ACCOUNT
+
+
+def test_an_unknown_account_does_not_replace_the_one_on_record(
+    session: Session, user: User, cipher: TokenCipher, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store_link(session, user.id, cipher, StubGarmin("stored-tokens"))
+    open_as(monkeypatch, session, user, cipher, 1234)
+
+    link = open_as(monkeypatch, session, user, cipher, None)
+
+    assert (link.garmin_account_id, link.status) == (1234, LinkStatus.ACTIVE)
+
+
+def test_tokens_move_to_a_new_key_when_the_link_is_used(
+    session: Session, user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old_key, new_key = generate_key(), generate_key()
+    store_link(session, user.id, TokenCipher(old_key), StubGarmin("stored-tokens"))
+    session.commit()
+
+    # Both keys are configured while rotating, the new one first.
+    open_as(monkeypatch, session, user, TokenCipher(f"{new_key},{old_key}"), None)
+
+    stored = session.get_one(GarminLink, user.id).encrypted_tokens
+    assert TokenCipher(new_key).decrypt(stored) == "stored-tokens"
 
 
 def test_unchanged_tokens_are_not_written_again(

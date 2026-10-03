@@ -86,7 +86,7 @@ class GarminSession:
     """An authenticated connection to one Garmin account."""
 
     def __init__(self, api: Garmin) -> None:
-        self.api = api
+        self._api = api
 
     @classmethod
     def from_ticket(cls, pasted: str) -> Self:
@@ -128,15 +128,23 @@ class GarminSession:
         A refresh can replace the refresh token, so store this again after
         every use of the session.
         """
-        tokens: str = self.api.client.dumps()
+        tokens: str = self._api.client.dumps()
         return tokens
+
+    def account_id(self) -> int | None:
+        """Garmin's number for the account, known once a session is resumed from tokens.
+
+        A session fresh from a ticket has not loaded the profile and returns None.
+        """
+        account = getattr(self._api, "profile_id", None)
+        return account if isinstance(account, int) else None
 
     def call(self, method: str, *args: Any) -> Any:
         """Call a read method of the library, such as get_sleep_data."""
         if not method.startswith(("get_", "count_", "download_")):
             raise ValueError(f"{method} is not a read method")
         try:
-            return getattr(self.api, method)(*args)
+            return getattr(self._api, method)(*args)
         except GarminConnectAuthenticationError as error:
             raise RelinkRequired(str(error)) from error
         except GarminConnectTooManyRequestsError as error:
