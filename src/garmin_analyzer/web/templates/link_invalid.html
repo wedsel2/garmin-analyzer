@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Link not valid{% endblock %}
+{% block content %}
+<div class="card mx-auto mt-6 max-w-md bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h1 class="card-title text-2xl">This link no longer works</h1>
+    <p>It has been used, has run out, or was replaced by a newer one. Ask the administrator of this instance for a new link.</p>
+    <a class="btn mt-2" href="/login">Sign in</a>
+  </div>
+</div>
+{% endblock %}

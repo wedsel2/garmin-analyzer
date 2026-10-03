@@ -1,9 +1,9 @@
 """Looking up and creating users."""
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from garmin_analyzer.models import User
+from garmin_analyzer.models import PasswordLink, User
 from garmin_analyzer.passwords import hash_password
 from garmin_analyzer.sessions import end_sessions_of
 
@@ -41,6 +41,8 @@ def add_user(session: Session, email: str) -> User:
 
 
 def set_password(session: Session, user: User, password: str) -> None:
-    """Give a user a new password and sign them out everywhere."""
+    """Give a user a new password, sign them out everywhere and cancel their password link."""
     user.password_hash = hash_password(password)
     end_sessions_of(session, user.id)
+    # A link made earlier must not be able to replace this password.
+    session.execute(delete(PasswordLink).where(PasswordLink.user_id == user.id))

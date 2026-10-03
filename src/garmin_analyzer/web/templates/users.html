@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-2xl font-semibold">Users</h1>
+
+{% if new_link %}
+<section class="card mb-6 border border-success bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">{% if new_link.is_invite %}Invite{% else %}Password link{% endif %} for {{ new_link.email }}</h2>
+    <p>Pass this address on to them. It works once, for {{ days }} days, and is shown only now.</p>
+    <input class="input w-full font-mono text-sm" type="text" value="{{ new_link.address }}" readonly aria-label="Address to pass on">
+  </div>
+</section>
+{% endif %}
+
+<section class="card mb-6 bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Invite someone</h2>
+    {% if error %}<p class="alert alert-error alert-soft" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/users" class="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <div class="flex-1">
+        <label class="label" for="email">Email address</label>
+        <input class="input w-full" id="email" name="email" type="email" value="{{ email }}" required>
+      </div>
+      <button class="btn btn-primary" type="submit">Invite</button>
+    </form>
+  </div>
+</section>
+
+<section class="card bg-base-100 shadow-sm">
+  <div class="card-body overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr><th>Email address</th><th>Role</th><th>State</th><th><span class="sr-only">Actions</span></th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.user.email }}</td>
+          <td>{% if row.user.is_admin %}Administrator{% else %}User{% endif %}</td>
+          <td>{{ row.state }}</td>
+          <td class="flex flex-wrap justify-end gap-2">
+            <form method="post" action="/users/{{ row.user.id }}/password-link">
+              <button class="btn btn-sm" type="submit">New password link</button>
+            </form>
+            {% if row.user.id != user.id %}
+            <a class="btn btn-sm btn-error btn-outline" href="/users/{{ row.user.id }}/remove">Remove</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

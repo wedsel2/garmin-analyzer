@@ -3,17 +3,14 @@
 See ADR 8 for accounts and ADR 15 for how sessions and forms are protected.
 """
 
-from collections.abc import Iterator
 from contextlib import suppress
-from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, FastAPI, Form, Request
+from fastapi import APIRouter, FastAPI, Form, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import Engine, func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -29,19 +26,24 @@ from garmin_analyzer.passwords import (
     verify_password,
 )
 from garmin_analyzer.ratelimit import FailureLimiter
-from garmin_analyzer.sessions import create_session, end_session, session_user
+from garmin_analyzer.sessions import end_session
 from garmin_analyzer.users import UserError, add_user, normalise_email, set_password
+from garmin_analyzer.web import accounts
+from garmin_analyzer.web.shared import (
+    COOKIE,
+    HERE,
+    MAX_EMAIL_LENGTH,
+    CurrentUser,
+    Db,
+    SignInRequired,
+    redirect,
+    sentence,
+    signed_in_user,
+    start_session,
+    templates,
+)
 
-HERE = Path(__file__).parent
-templates = Jinja2Templates(directory=HERE / "templates")
 router = APIRouter()
-
-COOKIE = "session"
-# The longest a browser keeps a cookie. The session itself ends sooner, on the
-# server: see sessions.IDLE_LIFETIME.
-COOKIE_MAX_AGE = 400 * 24 * 60 * 60
-# The longest address the standards allow; keeps the rate limiter's keys small.
-MAX_EMAIL_LENGTH = 254
 
 FAILED_SIGN_INS_PER_EMAIL = 5
 FAILED_SIGN_INS_PER_ADDRESS = 20
@@ -60,33 +62,6 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "same-origin",
     "X-Content-Type-Options": "nosniff",
 }
-
-
-class SignInRequired(Exception):
-    """The request needs a signed-in user and has none."""
-
-
-def get_db(request: Request) -> Iterator[Session]:
-    with request.app.state.sessions() as session:
-        yield session
-
-
-Db = Annotated[Session, Depends(get_db)]
-
-
-def signed_in_user(request: Request, db: Session) -> User | None:
-    token = request.cookies.get(COOKIE)
-    return session_user(db, token) if token else None
-
-
-def require_user(request: Request, db: Db) -> User:
-    user = signed_in_user(request, db)
-    if user is None:
-        raise SignInRequired
-    return user
-
-
-CurrentUser = Annotated[User, Depends(require_user)]
 
 
 def is_cross_site(request: Request) -> bool:
@@ -114,26 +89,6 @@ async def protect(request: Request, call_next: RequestResponseEndpoint) -> Respo
         response.headers[name] = value
     if not request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-store"
-    return response
-
-
-def redirect(path: str) -> RedirectResponse:
-    return RedirectResponse(path, status_code=303)
-
-
-def start_session(request: Request, db: Session, user: User) -> RedirectResponse:
-    """Sign the user in and send them to the first page. Commits."""
-    token = create_session(db, user.id)
-    db.commit()
-    response = redirect("/")
-    response.set_cookie(
-        COOKIE,
-        token,
-        max_age=COOKIE_MAX_AGE,
-        httponly=True,
-        samesite="lax",
-        secure=request.url.scheme == "https",
-    )
     return response
 
 
@@ -193,8 +148,7 @@ def setup(
         set_password(db, user, password)
     except (UserError, PasswordError) as error:
         db.rollback()
-        message = str(error)
-        return setup_page(request, email, message[0].upper() + message[1:] + ".")
+        return setup_page(request, email, sentence(error))
     return start_session(request, db, user)
 
 
@@ -273,4 +227,5 @@ def create_app(engine: Engine) -> FastAPI:
     app.add_exception_handler(SignInRequired, to_sign_in)
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     app.include_router(router)
+    app.include_router(accounts.router)
     return app

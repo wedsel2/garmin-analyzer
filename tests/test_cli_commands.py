@@ -13,6 +13,7 @@ from garmin_analyzer.db import make_session_factory
 from garmin_analyzer.garmin import GarminSession, LinkError, RelinkRequired
 from garmin_analyzer.links import AlreadySyncing, sync_lock
 from garmin_analyzer.models import GarminLink, LinkStatus, User
+from garmin_analyzer.password_links import create_link, link_user
 from garmin_analyzer.passwords import verify_password
 from garmin_analyzer.sessions import create_session, session_user
 from garmin_analyzer.tokens import TokenCipher, generate_key
@@ -319,13 +320,14 @@ def passwords_typed(monkeypatch: pytest.MonkeyPatch, *typed: str) -> None:
     monkeypatch.setattr("getpass.getpass", lambda prompt: next(answers))
 
 
-def test_user_password_sets_a_password_and_signs_the_user_out(
+def test_user_password_sets_a_password_signs_out_and_cancels_a_link(
     db: Engine, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     cli.main(["user-add", "runner@example.com"])
     with Session(db) as session:
         user = session.scalars(select(User)).one()
         token = create_session(session, user.id)
+        link = create_link(session, user.id)
         session.commit()
     passwords_typed(monkeypatch, "correct horse battery", "correct horse battery")
 
@@ -336,6 +338,7 @@ def test_user_password_sets_a_password_and_signs_the_user_out(
         user = session.scalars(select(User)).one()
         assert verify_password(user.password_hash, "correct horse battery")
         assert session_user(session, token) is None
+        assert link_user(session, link) is None
 
 
 @pytest.mark.parametrize(

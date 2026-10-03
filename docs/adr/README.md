@@ -21,6 +21,7 @@ the old one.
 | [13](0013-link-bound-to-one-garmin-account.md) | A link stays bound to the Garmin account it was first used with | Accepted |
 | [14](0014-token-key-rotation.md) | The token encryption key can be replaced without linking again | Accepted |
 | [15](0015-sessions-forms-and-sign-in-limits.md) | Sessions as hashed random tokens, forms protected by fetch metadata, sign-in limited in memory | Accepted |
+| [16](0016-invites-and-resets-as-password-links.md) | An invite is an account without a password plus a single-use password link | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.

@@ -2,9 +2,9 @@
 
 Target design. What exists today is the pipeline, the database schema, the
 collector run from the command line (`user-add`, `link` and `collect`), and the
-start of the web interface: `serve`, setting up the first account, and signing
-in, with the base layout and styling. Invites, linking Garmin in the browser,
-dashboards and the scheduled worker are next. See the [roadmap](roadmap.md) for
+start of the web interface: `serve`, setting up the first account, signing in,
+inviting and managing users, and the base layout and styling. Linking Garmin
+in the browser, dashboards and the scheduled worker are next. See the [roadmap](roadmap.md) for
 the order of work and the [decision records](adr/README.md) for the reasoning.
 
 ## Goal
@@ -65,15 +65,24 @@ light or dark setting of the device.
   web interface asks for it. Others join by invite link.
 - Forms posted from another site are refused, failed sign-ins are limited per
   email address and per client address, and pages may not be framed or cached.
+- The administrator invites someone by email address. That creates the account
+  without a password and a link, shown once, with which its holder sets the
+  password. The same kind of link resets a lost password. A link works once
+  and for 7 days.
+- A user changes their own password on the Account page, which asks for the
+  current one.
+- The administrator can remove a user, which removes everything stored for
+  them, but sees only accounts: never another user's health data.
 - `user-password` on the command line sets a password, for an account made with
-  `user-add` or a lost password.
+  `user-add` or when the administrator has lost theirs.
 - Every row of user data carries a `user_id`; all queries are scoped to the
   session user.
 - An instance exposed to the internet should sit behind an extra layer such as
   Cloudflare Access, but the app does not depend on it.
 
-See [ADR 8](adr/0008-built-in-accounts-and-invites.md) and
-[ADR 15](adr/0015-sessions-forms-and-sign-in-limits.md).
+See [ADR 8](adr/0008-built-in-accounts-and-invites.md),
+[ADR 15](adr/0015-sessions-forms-and-sign-in-limits.md) and
+[ADR 16](adr/0016-invites-and-resets-as-password-links.md).
 
 ## Garmin link
 
