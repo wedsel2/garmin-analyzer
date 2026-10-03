@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Link Garmin{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-2xl font-semibold">Link Garmin</h1>
+<section class="card max-w-2xl bg-base-100 shadow-sm">
+  <div class="card-body">
+    {% if other_account %}
+    <p class="alert alert-warning alert-soft">The Garmin account you linked last is not the one your data came from. Sign in with the original account.</p>
+    {% elif needs_relink %}
+    <p class="alert alert-warning alert-soft">Garmin no longer accepts the link. Sign in again to continue collecting.</p>
+    {% elif link %}
+    <p class="alert alert-success alert-soft">A Garmin account is linked. You only need this page when collecting has stopped.</p>
+    {% endif %}
+    <p>You sign in at Garmin yourself. This app never sees your Garmin password; it receives a one-time ticket that it exchanges for access to your data.</p>
+    <ol class="my-2 list-decimal space-y-3 pl-5">
+      <li>
+        Open Garmin's sign-in page and sign in there, with your verification code if Garmin asks for one.
+        <div class="mt-2"><a class="btn btn-sm" href="{{ sign_in_url }}" target="_blank" rel="noopener noreferrer">Open Garmin sign-in</a></div>
+      </li>
+      <li>When you are signed in, copy the full address from the address bar of that page. It contains <code>ticket=ST-</code>.</li>
+      <li>Paste it below within a minute. The ticket works once and runs out quickly.</li>
+    </ol>
+    {% if error %}<p class="alert alert-error alert-soft" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/garmin/link" class="flex flex-col gap-1">
+      <label class="label" for="address">Address from Garmin</label>
+      <input class="input w-full font-mono text-sm" id="address" name="address" type="text" autocomplete="off" required>
+      <div class="mt-4 flex justify-end gap-2">
+        <a class="btn" href="/">Back</a>
+        <button class="btn btn-primary" type="submit">Link</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

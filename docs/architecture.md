@@ -3,8 +3,8 @@
 Target design. What exists today is the pipeline, the database schema, the
 collector run from the command line (`user-add`, `link` and `collect`), and the
 start of the web interface: `serve`, setting up the first account, signing in,
-inviting and managing users, and the base layout and styling. Linking Garmin
-in the browser, dashboards and the scheduled worker are next. See the [roadmap](roadmap.md) for
+inviting and managing users, linking Garmin, and the base layout and styling.
+Dashboards and the scheduled worker are next. See the [roadmap](roadmap.md) for
 the order of work and the [decision records](adr/README.md) for the reasoning.
 
 ## Goal
@@ -97,6 +97,13 @@ See [ADR 8](adr/0008-built-in-accounts-and-invites.md),
    marked as needing re-linking and the user is told in the UI.
 
 Scripted sign-in is never used: Garmin blocks it and bans the IP address.
+
+In the browser this is the Link Garmin page, reached from the overview. The
+lock that allows one sync per user is taken only for the ticket exchange, not
+while the user signs in; when a sync of that user is running, linking is
+refused before the ticket is spent. A user gets 5 attempts in 15 minutes, as
+every attempt is a request to Garmin's sign-in site from the server's address.
+`link` on the command line does the same from a terminal.
 
 A link stays bound to the Garmin account it was first synced with. Tokens of
 another account are refused before anything is fetched, so two people's data

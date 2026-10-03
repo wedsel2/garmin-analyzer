@@ -16,8 +16,10 @@
     </div>
     {% if link is none %}
     <p>No Garmin account is linked yet.</p>
+    <div class="card-actions"><a class="btn btn-primary btn-sm" href="/garmin">Link Garmin</a></div>
     {% elif link.status.value == "needs_relink" %}
     <p>Garmin no longer accepts the link. Sign in to Garmin again to continue collecting.</p>
+    <div class="card-actions"><a class="btn btn-primary btn-sm" href="/garmin">Sign in to Garmin again</a></div>
     {% elif link.last_synced_at %}
     <p>Last collected on {{ link.last_synced_at.strftime("%Y-%m-%d at %H:%M") }} UTC.</p>
     {% else %}

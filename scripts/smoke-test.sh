@@ -53,6 +53,10 @@ docker compose run --rm web healthcheck
 echo "--- a user can be created"
 docker compose run --rm web user-add smoke@example.com
 
+# The web interface refuses to start without a key for the Garmin tokens.
+TOKEN_ENCRYPTION_KEY="$(docker run --rm "$APP_IMAGE" generate-key)"
+export TOKEN_ENCRYPTION_KEY
+
 echo "--- web interface starts and serves the sign-in page and the compiled stylesheet"
 docker compose up --detach --wait web
 docker compose exec -T web python -c '
