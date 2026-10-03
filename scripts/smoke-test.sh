@@ -48,6 +48,9 @@ docker compose run --rm app migrate
 echo "--- healthcheck passes on the migrated database"
 docker compose run --rm app healthcheck
 
+echo "--- a user can be created"
+docker compose run --rm app user-add smoke@example.com
+
 echo "--- healthcheck fails with the database down"
 docker compose stop db
 expect_unhealthy "database error" --no-deps

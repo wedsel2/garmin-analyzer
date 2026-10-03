@@ -12,7 +12,7 @@ python-garminconnect 0.3.17 against one real account, using
 | It gets the IP address banned | After two runs, Garmin's sign-in site returned Cloudflare error 1015 to the whole home IP address, including a normal browser. The ban lifted within about two hours. |
 | Browser sign-in plus ticket exchange works | The user signs in at Garmin's widget sign-in address; the final address contains `ticket=ST-...`; exchanging that ticket yields tokens. |
 | Tokens | Three fields: `di_token` (access token, valid about 26 hours), `di_refresh_token` (opaque) and `di_client_id`. They serialise to a JSON string, so they can be stored encrypted in the database. |
-| Not yet confirmed | Automatic refresh once the access token has expired. |
+| Refresh works | Confirmed on 2026-10-03: after the access token had expired, the stored tokens logged in without a new sign-in and a new access token was issued. |
 
 Consequence: the app links accounts by browser sign-in and never handles Garmin
 passwords. See [ADR 9](adr/0009-garmin-client-and-token-storage.md).
@@ -101,3 +101,12 @@ from them with `scripts/scrub_fixture.py`, which keeps the structure and value
 formats of a response but replaces every value: identifiers become counters,
 numbers become random numbers of similar size, dates and timestamps are moved,
 free text is redacted, coordinates are zeroed and long lists are cut short.
+
+## First live collection
+
+On 2026-10-03 the collector ran against the same account: linked through a
+browser sign-in, then one `collect`, which was a 14-day catch-up. It made 407
+requests with no failures, stored 406 raw answers from 42 endpoints and 14
+original activity files, and filled every normalised table. No stored series
+contained a negative "not measured" value, every activity had laps and its
+original file.

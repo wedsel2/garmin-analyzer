@@ -4,14 +4,21 @@ from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-from garminconnect import GarminConnectAuthenticationError, GarminConnectConnectionError
+from garminconnect import Garmin as RealGarmin
+from garminconnect import (
+    GarminConnectAuthenticationError,
+    GarminConnectConnectionError,
+    GarminConnectTooManyRequestsError,
+)
 
 from garmin_analyzer import garmin
 from garmin_analyzer.garmin import (
     SIGN_IN_URL,
     SSO_EMBED,
+    GarminError,
     GarminSession,
     LinkError,
+    RateLimited,
     RelinkRequired,
     extract_ticket,
 )
@@ -93,11 +100,11 @@ def test_linking_exchanges_the_ticket_and_never_uses_credentials() -> None:
     session = GarminSession.from_ticket(PASTED)
 
     assert session.tokens() == TOKENS
-    assert ("exchange", "ST-0123456-abcDEF-sso", SSO_EMBED) in FakeGarmin.calls
-    # No email or password is ever handed to the library.
-    assert [call for call in FakeGarmin.calls if call[0] == "init"] == [
+    # No email or password is handed to the library, and nothing is requested
+    # after the exchange that could fail and lose the tokens.
+    assert FakeGarmin.calls == [
         ("init", (), {}),
-        ("init", (), {}),
+        ("exchange", "ST-0123456-abcDEF-sso", SSO_EMBED),
     ]
 
 
@@ -131,8 +138,23 @@ def test_connection_problems_are_not_mistaken_for_rejected_tokens(
 ) -> None:
     monkeypatch.setattr(FakeGarmin, "login_error", GarminConnectConnectionError("timeout"))
 
-    with pytest.raises(GarminConnectConnectionError):
+    with pytest.raises(GarminError) as caught:
         GarminSession.from_tokens(TOKENS)
+    assert not isinstance(caught.value, RelinkRequired | RateLimited)
+
+
+def test_rate_limit_while_resuming_is_reported_as_such(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(FakeGarmin, "login_error", GarminConnectTooManyRequestsError("429"))
+
+    with pytest.raises(RateLimited):
+        GarminSession.from_tokens(TOKENS)
+
+
+def test_rate_limited_exchange_is_a_link_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(FakeGarmin, "exchange_error", GarminConnectTooManyRequestsError("429"))
+
+    with pytest.raises(LinkError, match="rate limiting"):
+        GarminSession.from_ticket(PASTED)
 
 
 def test_read_methods_can_be_called() -> None:
@@ -161,3 +183,38 @@ def test_tokens_rejected_during_a_call_require_a_new_link(
 
     with pytest.raises(RelinkRequired):
         session.call("get_sleep_data", "2026-01-15")
+
+
+def test_rate_limit_and_other_failures_are_told_apart(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = GarminSession.from_tokens(TOKENS)
+
+    def failing(error: Exception) -> None:
+        def method(self: FakeGarmin, day: str) -> None:
+            raise error
+
+        monkeypatch.setattr(FakeGarmin, "get_sleep_data", method)
+
+    failing(GarminConnectTooManyRequestsError("429"))
+    with pytest.raises(RateLimited):
+        session.call("get_sleep_data", "2026-01-15")
+
+    failing(GarminConnectConnectionError("timeout"))
+    with pytest.raises(GarminError) as caught:
+        session.call("get_sleep_data", "2026-01-15")
+    assert not isinstance(caught.value, RateLimited)
+
+
+def test_original_file_is_requested_in_the_device_format(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[tuple[str, Any]] = []
+
+    def download(self: FakeGarmin, activity_id: str, dl_fmt: Any) -> bytes:
+        seen.append((activity_id, dl_fmt))
+        return b"PK"
+
+    monkeypatch.setattr(FakeGarmin, "download_activity", download, raising=False)
+    monkeypatch.setattr(
+        FakeGarmin, "ActivityDownloadFormat", RealGarmin.ActivityDownloadFormat, raising=False
+    )
+
+    assert GarminSession.from_tokens(TOKENS).download_original("42") == b"PK"
+    assert seen == [("42", RealGarmin.ActivityDownloadFormat.ORIGINAL)]
