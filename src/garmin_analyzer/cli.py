@@ -75,10 +75,12 @@ def user_password(engine: Engine, args: argparse.Namespace) -> int:
 
 def serve(engine: Engine, args: argparse.Namespace) -> int:
     """Bring the schema up to date and run the web interface."""
+    # Asked for first: without the key nobody can link Garmin.
+    cipher = TokenCipher(token_encryption_key())
     migrate.upgrade(engine)
     # Addresses of proxies whose forwarded headers are trusted come from
     # FORWARDED_ALLOW_IPS, which uvicorn reads itself.
-    uvicorn.run(create_app(engine), host=args.host, port=args.port, proxy_headers=True)
+    uvicorn.run(create_app(engine, cipher), host=args.host, port=args.port, proxy_headers=True)
     return 0
 
 

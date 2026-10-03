@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from sqlalchemy import Engine
 
 from garmin_analyzer import cli, migrate
-from garmin_analyzer.tokens import TokenCipher
+from garmin_analyzer.tokens import TokenCipher, generate_key
 
 
 def test_healthcheck_ok_on_migrated_database(
@@ -85,6 +85,7 @@ def test_serve_migrates_and_then_runs_the_web_interface(
         started.update(options, title=app.title, migrated=migrate.is_up_to_date(empty_db))
 
     monkeypatch.setattr("uvicorn.run", run)
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", generate_key())
 
     assert cli.main(["serve", "--port", "8123"]) == 0
     assert started == {
@@ -109,3 +110,13 @@ def test_commands_that_use_tables_ask_for_migrations_first(
     assert capsys.readouterr().err == (
         "database schema is not up to date, run: garmin-analyzer migrate\n"
     )
+
+
+def test_serve_needs_the_encryption_key_before_it_touches_the_database(
+    empty_db: Engine, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("TOKEN_ENCRYPTION_KEY", raising=False)
+
+    assert cli.main(["serve"]) == 2
+    assert "TOKEN_ENCRYPTION_KEY is not set" in capsys.readouterr().err
+    assert not migrate.is_up_to_date(empty_db)

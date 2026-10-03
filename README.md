@@ -3,8 +3,8 @@
 Collects Garmin metrics into PostgreSQL so they can be visualised and analysed.
 
 > Status: the collector runs from the command line. The web interface lets you
-> create the first account, sign in and invite others; linking Garmin in the
-> browser and dashboards come next.
+> create the first account, sign in, invite others and link Garmin; a scheduled
+> worker and dashboards come next.
 
 ## Run
 
@@ -16,10 +16,11 @@ docker compose up --detach                            # applies migrations, serv
 
 Open <http://localhost:8000> and create the administrator account. Do this
 before making the instance reachable by others: whoever opens a fresh instance
-first becomes its administrator. Then, from the command line:
+first becomes its administrator. Choose **Link Garmin** on the overview: you
+sign in at Garmin in your own browser and paste the resulting address back.
+Then collect, from the command line until the scheduled worker exists:
 
 ```bash
-docker compose run --rm web link you@example.com      # sign in to Garmin in your browser, paste the address
 docker compose run --rm web collect --days 7
 ```
 

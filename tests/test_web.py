@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from garmin_analyzer.db import make_engine
 from garmin_analyzer.models import GarminLink, LinkStatus, User, WebSession
 from garmin_analyzer.passwords import verify_password
+from garmin_analyzer.tokens import TokenCipher, generate_key
 from garmin_analyzer.users import NO_PASSWORD, add_user, set_password
 from garmin_analyzer.web.app import (
     FAILED_SIGN_INS_PER_ADDRESS,
@@ -21,12 +22,13 @@ from garmin_analyzer.web.shared import COOKIE
 
 EMAIL = "runner@example.com"
 PASSWORD = "correct horse battery"  # noqa: S105
+CIPHER = TokenCipher(generate_key())
 WRONG = "wrong horse battery"
 
 
 @pytest.fixture
 def client(db: Engine) -> Iterator[TestClient]:
-    with TestClient(create_app(db), follow_redirects=False) as client:
+    with TestClient(create_app(db, CIPHER), follow_redirects=False) as client:
         yield client
 
 
@@ -58,7 +60,7 @@ def test_healthz_answers_without_signing_in(client: TestClient) -> None:
 
 def test_healthz_reports_a_database_that_is_down() -> None:
     unreachable = make_engine("postgresql+psycopg://nobody@127.0.0.1:1/none")
-    with TestClient(create_app(unreachable)) as client:
+    with TestClient(create_app(unreachable, CIPHER)) as client:
         assert client.get("/healthz").status_code == 503
 
 
@@ -146,7 +148,7 @@ def test_signing_in_and_out(client: TestClient, db: Engine, account: User) -> No
 
 def test_the_cookie_is_secure_over_https(db: Engine, account: User) -> None:
     with TestClient(
-        create_app(db), base_url="https://testserver", follow_redirects=False
+        create_app(db, CIPHER), base_url="https://testserver", follow_redirects=False
     ) as client:
         response = client.post("/login", data={"email": EMAIL, "password": PASSWORD})
 
