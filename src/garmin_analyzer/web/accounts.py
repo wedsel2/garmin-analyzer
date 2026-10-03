@@ -1,4 +1,4 @@
-"""Managing users, for the administrator, and setting a password from a link.
+"""Managing users, for the administrator, and setting a password: from a link or your own.
 
 The administrator sees accounts, never the health data of other users (ADR 8).
 """
@@ -15,11 +15,13 @@ from sqlalchemy.orm import Session
 
 from garmin_analyzer.models import PasswordLink, User
 from garmin_analyzer.password_links import LIFETIME, create_link, link_user, use_link
-from garmin_analyzer.passwords import MIN_LENGTH, PasswordError
-from garmin_analyzer.users import NO_PASSWORD, UserError, add_user, normalise_email
+from garmin_analyzer.passwords import MIN_LENGTH, PasswordError, verify_password
+from garmin_analyzer.ratelimit import FailureLimiter
+from garmin_analyzer.users import NO_PASSWORD, UserError, add_user, normalise_email, set_password
 from garmin_analyzer.web.shared import (
     MAX_EMAIL_LENGTH,
     Admin,
+    CurrentUser,
     Db,
     redirect,
     sentence,
@@ -183,4 +185,51 @@ def set_password_from_link(
         return set_password_page(request, token, owner.email, sentence(error))
     if user is None:
         return link_invalid(request)
+    return start_session(request, db, user)
+
+
+def account_page(
+    request: Request, user: User, error: str | None = None, status_code: int = 200
+) -> Response:
+    return templates.TemplateResponse(
+        request,
+        "account.html",
+        {"user": user, "error": error, "min_length": MIN_LENGTH},
+        status_code=status_code,
+    )
+
+
+@router.get("/account")
+def account(request: Request, user: CurrentUser) -> Response:
+    return account_page(request, user)
+
+
+@router.post("/account/password")
+def change_password(
+    request: Request,
+    db: Db,
+    user: CurrentUser,
+    current_password: Annotated[str, Form()],
+    password: Annotated[str, Form()],
+    password_again: Annotated[str, Form()],
+) -> Response:
+    """Change your own password. Signs you out everywhere else."""
+    # The same count as for signing in, so a session left open somewhere does
+    # not give unlimited guesses at the current password.
+    failures: FailureLimiter = request.app.state.failures_by_email
+    if not failures.attempt(user.email):
+        return account_page(
+            request, user, "Too many failed attempts. Try again in 15 minutes.", 429
+        )
+    if not verify_password(user.password_hash, current_password):
+        return account_page(request, user, "The current password is not right.", 400)
+    failures.reset(user.email)
+    try:
+        if password != password_again:
+            raise PasswordError("the two new passwords are not the same")
+        set_password(db, user, password)
+    except PasswordError as error:
+        db.rollback()
+        return account_page(request, user, sentence(error), 400)
+    # Every session was ended, this one included; continue in a new one.
     return start_session(request, db, user)

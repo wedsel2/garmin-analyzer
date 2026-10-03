@@ -69,6 +69,8 @@ light or dark setting of the device.
   without a password and a link, shown once, with which its holder sets the
   password. The same kind of link resets a lost password. A link works once
   and for 7 days.
+- A user changes their own password on the Account page, which asks for the
+  current one.
 - The administrator can remove a user, which removes everything stored for
   them, but sees only accounts: never another user's health data.
 - `user-password` on the command line sets a password, for an account made with

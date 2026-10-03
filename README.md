@@ -25,8 +25,9 @@ docker compose run --rm web collect --days 7
 
 Invite others from the Users page: it shows a link to pass on, with which they
 choose their password. The same page makes a new link for someone who lost
-their password and removes users. `user-password <email>` on the command line
-sets a password when you have lost your own.
+their password and removes users. Everyone changes their own password on the
+Account page. `user-password <email>` on the command line sets a password when
+you have lost your own.
 
 After updating the image, `docker compose up --detach` applies new migrations.
 The other commands refuse to run until that, or `migrate`, has been done.

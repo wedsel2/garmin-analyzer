@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from garmin_analyzer.models import DailySummary, GarminLink, User
 from garmin_analyzer.passwords import verify_password
 from garmin_analyzer.users import NO_PASSWORD, add_user, set_password
-from garmin_analyzer.web.app import create_app
+from garmin_analyzer.web.app import FAILED_SIGN_INS_PER_EMAIL, create_app
 from garmin_analyzer.web.shared import COOKIE
 
 ADMIN = "admin@example.com"
@@ -268,3 +268,86 @@ def test_forms_for_user_management_cannot_be_posted_from_another_site(
 
     assert response.status_code == 403
     assert emails(db) == [ADMIN]
+
+
+def change_password(
+    client: TestClient, current: str, new: str, again: str | None = None
+) -> tuple[int, str]:
+    response = client.post(
+        "/account/password",
+        data={
+            "current_password": current,
+            "password": new,
+            "password_again": new if again is None else again,
+        },
+    )
+    return int(response.status_code), response.text
+
+
+def test_a_user_changes_their_own_password_and_is_signed_out_elsewhere(
+    admin: TestClient, db: Engine
+) -> None:
+    assert 'href="/account"' in admin.get("/").text
+    assert "Change password" in admin.get("/account").text
+    with make_client(db) as elsewhere:
+        elsewhere.post("/login", data={"email": ADMIN, "password": PASSWORD})
+        old_cookie = admin.cookies[COOKIE]
+
+        status, _ = change_password(admin, PASSWORD, "a brand new password")
+
+        assert status == 303
+        assert admin.cookies[COOKIE] != old_cookie
+        assert admin.get("/").status_code == 200
+        assert elsewhere.get("/").headers["location"] == "/login"
+        assert (
+            elsewhere.post("/login", data={"email": ADMIN, "password": PASSWORD}).status_code == 401
+        )
+    with Session(db) as session:
+        stored = session.scalars(select(User.password_hash)).one()
+        assert verify_password(stored, "a brand new password")
+
+
+@pytest.mark.parametrize(
+    ("current", "new", "again", "message"),
+    [
+        ("not the password!", "a brand new password", None, "The current password is not right."),
+        (
+            PASSWORD,
+            "a brand new password",
+            "a brand new passwor",
+            "The two new passwords are not the same.",
+        ),
+        (PASSWORD, "short", None, "Use a password of at least 12 characters."),
+    ],
+)
+def test_a_refused_password_change_changes_nothing(
+    admin: TestClient, db: Engine, current: str, new: str, again: str | None, message: str
+) -> None:
+    status, text = change_password(admin, current, new, again)
+
+    assert status == 400
+    assert message in text
+    assert admin.get("/").status_code == 200
+    with Session(db) as session:
+        assert verify_password(session.scalars(select(User.password_hash)).one(), PASSWORD)
+
+
+def test_guesses_at_the_current_password_are_limited(admin: TestClient, db: Engine) -> None:
+    for _ in range(FAILED_SIGN_INS_PER_EMAIL):
+        assert change_password(admin, "not the password!", "a brand new password")[0] == 400
+
+    status, text = change_password(admin, PASSWORD, "a brand new password")
+
+    assert status == 429
+    assert "Too many failed attempts" in text
+    with Session(db) as session:
+        assert verify_password(session.scalars(select(User.password_hash)).one(), PASSWORD)
+
+
+def test_the_account_page_needs_a_signed_in_user(anonymous: TestClient) -> None:
+    assert anonymous.get("/account").headers["location"] == "/login"
+    response = anonymous.post(
+        "/account/password",
+        data={"current_password": "x", "password": "y", "password_again": "y"},
+    )
+    assert response.headers["location"] == "/login"

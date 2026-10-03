@@ -56,5 +56,6 @@ invites and resets was left open.
   address is corrected by removing the account and inviting again.
 - The link's address is built from the request, so behind a proxy whose
   forwarded headers are not trusted it starts with `http://`.
-- Users cannot change their own password yet without a link from the
-  administrator; a page for that can be added on top of this.
+- A lost password needs the administrator. A user who knows their password
+  changes it on the Account page, which asks for the current one and counts
+  wrong answers against the same limit as signing in.

@@ -19,6 +19,7 @@
     {% if user.is_admin %}<a class="btn btn-ghost btn-sm" href="/users">Users</a>{% endif %}
     <form method="post" action="/logout" class="flex items-center gap-3">
       <span class="hidden text-sm opacity-70 sm:inline">{{ user.email }}</span>
+      <a class="btn btn-ghost btn-sm" href="/account">Account</a>
       <button class="btn btn-ghost btn-sm" type="submit">Sign out</button>
     </form>
     {% endif %}
