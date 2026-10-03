@@ -67,6 +67,19 @@ class WebSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class PasswordLink(Base):
+    """A link with which a user sets their password: an invite or a reset. One per user."""
+
+    __tablename__ = "password_links"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    token_hash: Mapped[str] = mapped_column(Text, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class LinkStatus(enum.Enum):
     ACTIVE = "active"
     NEEDS_RELINK = "needs_relink"

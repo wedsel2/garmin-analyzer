@@ -9,7 +9,7 @@ intentionally less detailed.
 | 1 | Design | Architecture doc, decision records, Claude configuration | Done |
 | 2 | Garmin spike | Browser-assisted login confirmed, 70 endpoints probed, [findings](garmin-spike.md) written, ADR 9 revised | Done |
 | 3 | Storage and collector | Schema and migrations, raw and normalised layers, synthetic fixtures per metric family, token encryption, and `user-add`, `link` and `collect` from the command line | Done, first live run on 2026-10-03 |
-| 4 | Web foundation | `serve`, accounts, invites, Garmin link flow, base layout and styling, and a scheduled worker that runs `collect` | In progress: `serve`, first-account setup, sign-in, and layout and styling are done |
+| 4 | Web foundation | `serve`, accounts, invites, Garmin link flow, base layout and styling, and a scheduled worker that runs `collect` | In progress: `serve`, first-account setup, sign-in, layout and styling, and invites and user management are done |
 | 5 | Dashboards | Overview plus pages per metric family, date range selection | |
 | 6 | Publish | Tunnel hostname, Cloudflare Access, installable on Android, self-hosting guide | |
 | 7 | Goals | Goal management per user | |

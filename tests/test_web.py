@@ -13,11 +13,11 @@ from garmin_analyzer.models import GarminLink, LinkStatus, User, WebSession
 from garmin_analyzer.passwords import verify_password
 from garmin_analyzer.users import NO_PASSWORD, add_user, set_password
 from garmin_analyzer.web.app import (
-    COOKIE,
     FAILED_SIGN_INS_PER_ADDRESS,
     FAILED_SIGN_INS_PER_EMAIL,
     create_app,
 )
+from garmin_analyzer.web.shared import COOKIE
 
 EMAIL = "runner@example.com"
 PASSWORD = "correct horse battery"  # noqa: S105
