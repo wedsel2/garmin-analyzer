@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<h1>Overview</h1>
+<h2>Garmin</h2>
+{% if link is none %}
+<p>No Garmin account is linked yet.</p>
+{% elif link.status.value == "needs_relink" %}
+<p class="error">Garmin no longer accepts the link. Sign in to Garmin again to continue collecting.</p>
+{% else %}
+<p>Linked.
+  {% if link.last_synced_at %}Last collected on {{ link.last_synced_at.strftime("%Y-%m-%d at %H:%M") }} UTC.
+  {% else %}Nothing has been collected yet.{% endif %}
+</p>
+{% endif %}
+{% endblock %}

@@ -20,6 +20,7 @@ the old one.
 | [12](0012-activities-stored-in-full.md) | Store activities in full, normalise summaries, laps and zones | Accepted |
 | [13](0013-link-bound-to-one-garmin-account.md) | A link stays bound to the Garmin account it was first used with | Accepted |
 | [14](0014-token-key-rotation.md) | The token encryption key can be replaced without linking again | Accepted |
+| [15](0015-sessions-forms-and-sign-in-limits.md) | Sessions as hashed random tokens, forms protected by fetch metadata, sign-in limited in memory | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.

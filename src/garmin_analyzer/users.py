@@ -4,6 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from garmin_analyzer.models import User
+from garmin_analyzer.passwords import hash_password
+from garmin_analyzer.sessions import end_sessions_of
 
 # Not a valid hash of any password: the account cannot sign in until the web
 # interface lets its owner set one.
@@ -36,3 +38,9 @@ def add_user(session: Session, email: str) -> User:
     user = User(email=email, password_hash=NO_PASSWORD, is_admin=is_first)
     session.add(user)
     return user
+
+
+def set_password(session: Session, user: User, password: str) -> None:
+    """Give a user a new password and sign them out everywhere."""
+    user.password_hash = hash_password(password)
+    end_sessions_of(session, user.id)

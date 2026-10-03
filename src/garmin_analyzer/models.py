@@ -53,6 +53,20 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class WebSession(Base):
+    """A signed-in browser. The cookie holds a random token; only its hash is stored."""
+
+    __tablename__ = "sessions"
+
+    token_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class LinkStatus(enum.Enum):
     ACTIVE = "active"
     NEEDS_RELINK = "needs_relink"
