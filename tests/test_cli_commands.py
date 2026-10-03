@@ -13,7 +13,10 @@ from garmin_analyzer.db import make_session_factory
 from garmin_analyzer.garmin import GarminSession, LinkError, RelinkRequired
 from garmin_analyzer.links import AlreadySyncing, sync_lock
 from garmin_analyzer.models import GarminLink, LinkStatus, User
+from garmin_analyzer.passwords import verify_password
+from garmin_analyzer.sessions import create_session, session_user
 from garmin_analyzer.tokens import TokenCipher, generate_key
+from garmin_analyzer.users import NO_PASSWORD
 
 PASTED = "https://sso.garmin.com/sso/embed?ticket=ST-0123456-abcDEF-sso"
 
@@ -309,3 +312,58 @@ def test_collect_reports_tokens_that_cannot_be_decrypted(
 
     assert cli.main(["collect", "runner@example.com"]) == 1
     assert "stored Garmin tokens cannot be decrypted" in capsys.readouterr().err
+
+
+def passwords_typed(monkeypatch: pytest.MonkeyPatch, *typed: str) -> None:
+    answers = iter(typed)
+    monkeypatch.setattr("getpass.getpass", lambda prompt: next(answers))
+
+
+def test_user_password_sets_a_password_and_signs_the_user_out(
+    db: Engine, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli.main(["user-add", "runner@example.com"])
+    with Session(db) as session:
+        user = session.scalars(select(User)).one()
+        token = create_session(session, user.id)
+        session.commit()
+    passwords_typed(monkeypatch, "correct horse battery", "correct horse battery")
+
+    assert cli.main(["user-password", "Runner@example.com"]) == 0
+
+    assert "password set for runner@example.com" in capsys.readouterr().out
+    with Session(db) as session:
+        user = session.scalars(select(User)).one()
+        assert verify_password(user.password_hash, "correct horse battery")
+        assert session_user(session, token) is None
+
+
+@pytest.mark.parametrize(
+    ("typed", "message"),
+    [
+        (("correct horse battery", "correct horse batter"), "the two passwords are not the same"),
+        (("short", "short"), "at least 12 characters"),
+    ],
+)
+def test_user_password_refuses_a_mistyped_or_weak_password(
+    db: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    typed: tuple[str, str],
+    message: str,
+) -> None:
+    cli.main(["user-add", "runner@example.com"])
+    passwords_typed(monkeypatch, *typed)
+
+    assert cli.main(["user-password", "runner@example.com"]) == 1
+
+    assert message in capsys.readouterr().err
+    with Session(db) as session:
+        assert session.scalars(select(User.password_hash)).one() == NO_PASSWORD
+
+
+def test_user_password_needs_an_existing_user(
+    db: Engine, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["user-password", "nobody@example.com"]) == 1
+    assert "no user with email nobody@example.com" in capsys.readouterr().err

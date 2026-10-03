@@ -9,10 +9,15 @@ license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.20.0",
+    "argon2-cffi>=25.1.0",
     "cryptography>=50.0.2",
+    "fastapi>=0.142.2",
     "garminconnect==0.3.17",
+    "jinja2>=3.1.6",
     "psycopg[binary]>=3.3.6",
+    "python-multipart>=0.0.32",
     "sqlalchemy>=2.1.1",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
@@ -55,6 +60,7 @@ fail_under = 80
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.13.1",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",

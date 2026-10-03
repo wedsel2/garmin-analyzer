@@ -41,8 +41,8 @@ A change cannot reach the registry unless:
 - Trivy finds no fixable HIGH or CRITICAL vulnerability in the lockfile,
   Containerfile or image,
 - the image runs as non-root, applies its migrations to a fresh PostgreSQL,
-  passes `healthcheck` afterwards, and fails it before migrating and when the
-  database is down.
+  passes `healthcheck` afterwards, serves the sign-in page and its stylesheet,
+  and fails `healthcheck` before migrating and when the database is down.
 
 ## Releasing
 

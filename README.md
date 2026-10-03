@@ -2,19 +2,29 @@
 
 Collects Garmin metrics into PostgreSQL so they can be visualised and analysed.
 
-> Status: the collector runs from the command line. The web interface and
-> dashboards come next.
+> Status: the collector runs from the command line. The web interface lets you
+> create the first account and sign in; invites, linking Garmin in the browser
+> and dashboards come next.
 
 ## Run
 
 ```bash
 cp .env.example .env                                  # set POSTGRES_PASSWORD
-docker compose run --rm app generate-key              # put the result in .env as TOKEN_ENCRYPTION_KEY
-docker compose run --rm app migrate
-docker compose run --rm app user-add you@example.com
-docker compose run --rm app link you@example.com      # sign in to Garmin in your browser, paste the address
-docker compose run --rm app collect --days 7
+docker compose run --rm web generate-key              # put the result in .env as TOKEN_ENCRYPTION_KEY
+docker compose up --detach                            # applies migrations, serves http://localhost:8000
 ```
+
+Open <http://localhost:8000> and create the administrator account. Do this
+before making the instance reachable by others: whoever opens a fresh instance
+first becomes its administrator. Then, from the command line:
+
+```bash
+docker compose run --rm web link you@example.com      # sign in to Garmin in your browser, paste the address
+docker compose run --rm web collect --days 7
+```
+
+`user-add <email>` creates further accounts and `user-password <email>` sets a
+password, also when you have lost yours.
 
 `collect` without an email syncs every linked user. Run it again at any time: it
 fetches the last two days anew and only what is still missing before that. Once

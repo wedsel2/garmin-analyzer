@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Set up{% endblock %}
+{% block content %}
+<h1>Create the administrator account</h1>
+<p>This instance has no accounts yet. The account you create here manages it and invites other people.</p>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<form method="post" action="/setup">
+  <label for="email">Email address</label>
+  <input id="email" name="email" type="email" value="{{ email }}" autocomplete="username" required autofocus>
+  <label for="password">Password</label>
+  <input id="password" name="password" type="password" autocomplete="new-password" minlength="{{ min_length }}" required>
+  <p class="hint">At least {{ min_length }} characters.</p>
+  <label for="password_again">Password again</label>
+  <input id="password_again" name="password_again" type="password" autocomplete="new-password" required>
+  <button type="submit">Create account</button>
+</form>
+{% endblock %}

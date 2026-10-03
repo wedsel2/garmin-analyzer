@@ -34,6 +34,7 @@ def test_upgrade_creates_the_schema(empty_db: Engine) -> None:
         "activity_laps",
         "activity_zones",
         "users",
+        "sessions",
         "garmin_links",
         "raw_payloads",
     }

@@ -1,8 +1,10 @@
 # Architecture
 
-Target design. What exists today is the pipeline, the database schema and the
-collector, run from the command line: `user-add`, `link` and `collect`. The web
-interface and the scheduled worker are next. See the [roadmap](roadmap.md) for
+Target design. What exists today is the pipeline, the database schema, the
+collector run from the command line (`user-add`, `link` and `collect`), and the
+start of the web interface: `serve`, setting up the first account, and signing
+in. Invites, linking Garmin in the browser, styling, dashboards and the
+scheduled worker are next. See the [roadmap](roadmap.md) for
 the order of work and the [decision records](adr/README.md) for the reasoning.
 
 ## Goal
@@ -52,14 +54,21 @@ standalone Tailwind binary during the image build. See [ADR 7](adr/0007-web-app-
 
 ## Users and access
 
-- Built-in accounts: password hashes (argon2) and server-side sessions.
-- The first account created becomes the administrator. Others join by invite link.
+- Built-in accounts: password hashes (argon2) and server-side sessions. The
+  cookie holds a random token and the database only its hash.
+- The first account created becomes the administrator: on a fresh instance the
+  web interface asks for it. Others join by invite link.
+- Forms posted from another site are refused, failed sign-ins are limited per
+  email address and per client address, and pages may not be framed or cached.
+- `user-password` on the command line sets a password, for an account made with
+  `user-add` or a lost password.
 - Every row of user data carries a `user_id`; all queries are scoped to the
   session user.
 - An instance exposed to the internet should sit behind an extra layer such as
   Cloudflare Access, but the app does not depend on it.
 
-See [ADR 8](adr/0008-built-in-accounts-and-invites.md).
+See [ADR 8](adr/0008-built-in-accounts-and-invites.md) and
+[ADR 15](adr/0015-sessions-forms-and-sign-in-limits.md).
 
 ## Garmin link
 
@@ -147,8 +156,8 @@ Schema changes are Alembic migrations, applied on start-up of the `web` service.
 Reference deployment, see [ADR 11](adr/0011-compose-deployment-behind-cloudflare-tunnel.md):
 
 - Docker Compose on a Linux host (the owner runs it in an Ubuntu VM on Proxmox).
-- Configuration through a `.env` file: database password, session secret, token
-  encryption key.
+- Configuration through a `.env` file: database password, token encryption key,
+  and where the web interface listens.
 - Published through an existing Cloudflare tunnel as its own hostname, with
   Cloudflare Access in front. Home Assistant can show it as a sidebar webpage
   panel but does not route or authenticate it.
