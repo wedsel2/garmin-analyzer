@@ -11,6 +11,9 @@ junit.xml
 .ruff_cache/
 .scannerwork/
 
+# Compiled by the image build or scripts/build-css.sh
+src/garmin_analyzer/web/static/app.css
+
 # Claude Code personal overrides
 .claude/settings.local.json
 

@@ -4,19 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} - Garmin Analyzer</title>
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
-  <header>
-    <a class="brand" href="/">Garmin Analyzer</a>
+<body class="min-h-screen bg-base-200 text-base-content">
+  <header class="navbar bg-base-100 px-4 shadow-sm">
+    <div class="flex-1">
+      <a class="flex items-center gap-2 text-lg font-semibold" href="/">
+        <img src="/static/icon.svg" alt="" class="size-6">
+        Garmin Analyzer
+      </a>
+    </div>
     {% if user %}
-    <form method="post" action="/logout">
-      <span>{{ user.email }}</span>
-      <button type="submit">Sign out</button>
+    <form method="post" action="/logout" class="flex items-center gap-3">
+      <span class="hidden text-sm opacity-70 sm:inline">{{ user.email }}</span>
+      <button class="btn btn-ghost btn-sm" type="submit">Sign out</button>
     </form>
     {% endif %}
   </header>
-  <main>
+  <main class="mx-auto w-full max-w-5xl p-4 sm:p-6">
     {% block content %}{% endblock %}
   </main>
 </body>

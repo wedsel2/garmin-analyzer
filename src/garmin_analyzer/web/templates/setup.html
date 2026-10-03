@@ -1,17 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Set up{% endblock %}
 {% block content %}
-<h1>Create the administrator account</h1>
-<p>This instance has no accounts yet. The account you create here manages it and invites other people.</p>
-{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-<form method="post" action="/setup">
-  <label for="email">Email address</label>
-  <input id="email" name="email" type="email" value="{{ email }}" autocomplete="username" required>
-  <label for="password">Password</label>
-  <input id="password" name="password" type="password" autocomplete="new-password" minlength="{{ min_length }}" required>
-  <p class="hint">At least {{ min_length }} characters.</p>
-  <label for="password_again">Password again</label>
-  <input id="password_again" name="password_again" type="password" autocomplete="new-password" required>
-  <button type="submit">Create account</button>
-</form>
+<div class="card mx-auto mt-6 max-w-md bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h1 class="card-title text-2xl">Create the administrator account</h1>
+    <p class="opacity-70">This instance has no accounts yet. The account you create here manages it and invites other people.</p>
+    {% if error %}<p class="alert alert-error alert-soft" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/setup" class="flex flex-col gap-1">
+      <label class="label" for="email">Email address</label>
+      <input class="input w-full" id="email" name="email" type="email" value="{{ email }}" autocomplete="username" required>
+      <label class="label mt-2" for="password">Password</label>
+      <input class="input w-full" id="password" name="password" type="password" autocomplete="new-password" minlength="{{ min_length }}" required>
+      <p class="text-sm opacity-70">At least {{ min_length }} characters.</p>
+      <label class="label mt-2" for="password_again">Password again</label>
+      <input class="input w-full" id="password_again" name="password_again" type="password" autocomplete="new-password" required>
+      <button class="btn btn-primary mt-4" type="submit">Create account</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

@@ -5,6 +5,8 @@ set -euo pipefail
 export APP_IMAGE="${APP_IMAGE:-garmin-analyzer:dev}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-smoke-test}"
 export COMPOSE_PROJECT_NAME="garmin-analyzer-smoke"
+# Any free port on this machine, so a running instance is not in the way.
+export WEB_BIND="127.0.0.1:"
 
 cleanup() { docker compose down --volumes --remove-orphans; }
 trap cleanup EXIT
@@ -51,12 +53,13 @@ docker compose run --rm web healthcheck
 echo "--- a user can be created"
 docker compose run --rm web user-add smoke@example.com
 
-echo "--- web interface starts and serves the sign-in page and its stylesheet"
+echo "--- web interface starts and serves the sign-in page and the compiled stylesheet"
 docker compose up --detach --wait web
 docker compose exec -T web python -c '
 import urllib.request as r
 assert b"Sign in" in r.urlopen("http://127.0.0.1:8000/login", timeout=5).read()
-r.urlopen("http://127.0.0.1:8000/static/app.css", timeout=5)
+css = r.urlopen("http://127.0.0.1:8000/static/app.css", timeout=5).read()
+assert b".btn" in css and b".navbar" in css, "stylesheet is not the compiled one"
 '
 
 echo "--- healthcheck fails with the database down"
