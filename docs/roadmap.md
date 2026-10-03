@@ -29,3 +29,29 @@ and the first live collection.
 - **Parsers for pulse ox, endurance score, hill score and lactate threshold
   heart rate and speed.** They need a sample from an account that has the data.
 - **Activity weather and exercise sets** as tables. Stored raw only.
+
+## Known limits of the collector
+
+Found in a review on 2026-10-03 and left as they are, because each needs a rare
+coincidence. Pick one up when it shows in real data.
+
+- **Activity details are fetched once.** An activity synced while Garmin is
+  still processing it keeps whatever was empty then; the weekly catch-up covers
+  days, not activities. An activity without an original file is asked for again
+  on every sync that lists it.
+- **`max_metrics` is stored under the period it was asked for**, so every day
+  adds a raw row instead of replacing one.
+- **"Today" is the date of the server clock, in UTC.** For a user west of UTC a
+  day can get its last regular refetch before it has ended, and stays
+  incomplete until the weekly catch-up.
+- **A 401 in the middle of a sync marks the link as needing a new sign-in**,
+  also in the unlikely case that it came from a token refresh that failed on a
+  network error. `collect <email>` makes the link active again when the tokens
+  still work.
+- **Days for which Garmin answers nothing at all** on the daily summary, heart
+  rate or floors count as failed requests, not as empty, and are asked for
+  again by every sync that covers them. Not yet seen in practice.
+- **`link` holds the sync lock while it waits for the pasted address**, so a
+  prompt left open makes syncs skip that user. The web link flow must not do this.
+- **Database errors print statement values**, which can include health data.
+  Fine on a terminal; to be handled before the worker writes logs elsewhere.

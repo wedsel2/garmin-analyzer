@@ -22,6 +22,10 @@ a week it also fetches the last two weeks again, so days your watch uploaded
 late are not missed. Use `--since 2024-01-01` to fill in history; it can be
 interrupted and resumed.
 
+A user stays linked to the Garmin account of their first sync; linking another
+account is refused at the next `collect`. To replace `TOKEN_ENCRYPTION_KEY`
+without everyone signing in again, see the note in `.env.example`.
+
 Released images: `ghcr.io/wedsel2/garmin-analyzer:<version>`.
 
 ## Develop
