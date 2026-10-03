@@ -11,6 +11,7 @@ from garmin_analyzer import cli
 from garmin_analyzer.collector import SyncResult
 from garmin_analyzer.db import make_session_factory
 from garmin_analyzer.garmin import GarminSession, LinkError, RelinkRequired
+from garmin_analyzer.links import AlreadySyncing
 from garmin_analyzer.models import GarminLink, LinkStatus, User
 from garmin_analyzer.tokens import TokenCipher, generate_key
 
@@ -220,6 +221,40 @@ def test_collect_continues_with_other_users_when_one_cannot_be_opened(
     assert cli.main(["collect"]) == 1
     captured = capsys.readouterr()
     assert "cyclist@example.com: tokens rejected" in captured.err
+    assert "runner@example.com" in captured.out
+
+
+def test_collect_continues_with_other_users_after_an_unexpected_failure(
+    linked_users: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def one_broken(session: Session, user_id: Any, *args: Any) -> SyncResult:
+        if session.get_one(User, user_id).email == "cyclist@example.com":
+            raise ValueError("a response nobody foresaw")
+        return SyncResult(calls=3)
+
+    monkeypatch.setattr(cli, "collect_user", one_broken)
+
+    assert cli.main(["collect"]) == 1
+    captured = capsys.readouterr()
+    assert "cyclist@example.com: ValueError: a response nobody foresaw" in captured.err
+    assert "Traceback" in captured.err
+    assert "runner@example.com" in captured.out
+
+
+def test_collect_skips_a_user_who_is_already_being_synced(
+    linked_users: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def busy(session: Session, user_id: Any, *args: Any) -> SyncResult:
+        if session.get_one(User, user_id).email == "cyclist@example.com":
+            raise AlreadySyncing("a backfill is running")
+        return SyncResult(calls=3)
+
+    monkeypatch.setattr(cli, "collect_user", busy)
+
+    # Not a failure: the other sync is doing the work.
+    assert cli.main(["collect"]) == 0
+    captured = capsys.readouterr()
+    assert "cyclist@example.com: skipped, another sync is running" in captured.err
     assert "runner@example.com" in captured.out
 
 

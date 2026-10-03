@@ -143,6 +143,43 @@ def test_connection_problems_are_not_mistaken_for_rejected_tokens(
     assert not isinstance(caught.value, RelinkRequired | RateLimited)
 
 
+def profile_failure(cause: Exception) -> GarminConnectAuthenticationError:
+    """What the library raises when it cannot load the profile while logging in."""
+    error = GarminConnectAuthenticationError("Failed to retrieve social profile")
+    error.__cause__ = cause
+    return error
+
+
+@pytest.mark.parametrize(
+    "cause",
+    [OSError("network unreachable"), GarminConnectConnectionError("API Error 503 - busy")],
+)
+def test_an_outage_while_resuming_does_not_require_a_new_link(
+    monkeypatch: pytest.MonkeyPatch, cause: Exception
+) -> None:
+    monkeypatch.setattr(FakeGarmin, "login_error", profile_failure(cause))
+
+    with pytest.raises(GarminError, match="Failed to retrieve social profile") as caught:
+        GarminSession.from_tokens(TOKENS)
+    assert not isinstance(caught.value, RelinkRequired | RateLimited)
+
+
+def test_a_401_while_resuming_requires_a_new_link(monkeypatch: pytest.MonkeyPatch) -> None:
+    cause = GarminConnectConnectionError("API Error 401 - Unauthorized")
+    monkeypatch.setattr(FakeGarmin, "login_error", profile_failure(cause))
+
+    with pytest.raises(RelinkRequired, match="API Error 401"):
+        GarminSession.from_tokens(TOKENS)
+
+
+def test_a_429_while_loading_the_profile_is_a_rate_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    cause = GarminConnectConnectionError("API Error 429")
+    monkeypatch.setattr(FakeGarmin, "login_error", profile_failure(cause))
+
+    with pytest.raises(RateLimited):
+        GarminSession.from_tokens(TOKENS)
+
+
 def test_rate_limit_while_resuming_is_reported_as_such(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(FakeGarmin, "login_error", GarminConnectTooManyRequestsError("429"))
 

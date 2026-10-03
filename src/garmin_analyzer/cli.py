@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+import traceback
 from collections.abc import Callable, Sequence
 from datetime import date, timedelta
 
@@ -20,7 +21,7 @@ from garmin_analyzer.garmin import (
     LinkError,
     RelinkRequired,
 )
-from garmin_analyzer.links import NotLinked, store_link
+from garmin_analyzer.links import AlreadySyncing, NotLinked, store_link
 from garmin_analyzer.models import GarminLink, LinkStatus, User
 from garmin_analyzer.tokens import TokenCipher, TokenDecryptError, generate_key
 from garmin_analyzer.users import UserError, add_user, find_user
@@ -94,6 +95,16 @@ def collect(engine: Engine, args: argparse.Namespace) -> int:
                 result = collect_user(session, user.id, cipher, since, today, args.pause)
             except (NotLinked, RelinkRequired, GarminError, TokenDecryptError) as error:
                 print(f"{user.email}: {error}", file=sys.stderr)
+                failed = True
+                continue
+            except AlreadySyncing:
+                print(f"{user.email}: skipped, another sync is running", file=sys.stderr)
+                continue
+            except Exception as error:
+                # Whatever went wrong for this user, the others are still synced.
+                traceback.print_exc()
+                print(f"{user.email}: {type(error).__name__}: {error}", file=sys.stderr)
+                session.rollback()
                 failed = True
                 continue
             print(

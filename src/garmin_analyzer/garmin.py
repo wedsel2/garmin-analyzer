@@ -32,6 +32,8 @@ SIGN_IN_URL = "https://sso.garmin.com/sso/signin?" + urlencode(
     }
 )
 TICKET = re.compile(r"ST-[A-Za-z0-9-]+")
+# How the library words an HTTP error answer from Garmin.
+API_STATUS = re.compile(r"API Error (\d{3})")
 
 
 class LinkError(Exception):
@@ -48,6 +50,25 @@ class GarminError(Exception):
 
 class RateLimited(GarminError):
     """Garmin asked us to slow down. Stop and try again later."""
+
+
+def login_failure(error: GarminConnectAuthenticationError) -> Exception:
+    """Tell rejected tokens apart from a login that failed for another reason.
+
+    The library reports every failure to load the profile as an authentication
+    error, also when Garmin was unreachable or busy. Only a 401 answer, or
+    tokens the library could not use at all, means the user has to link again.
+    """
+    cause = error.__cause__
+    if cause is None:
+        return RelinkRequired(str(error))
+    status = API_STATUS.search(str(cause))
+    code = status.group(1) if status else None
+    if code == "401":
+        return RelinkRequired(f"{error}: {cause}")
+    if code == "429":
+        return RateLimited(f"{error}: {cause}")
+    return GarminError(f"{error}: {cause}")
 
 
 def extract_ticket(pasted: str) -> str:
@@ -91,7 +112,7 @@ class GarminSession:
         try:
             api.login(tokenstore=tokens)
         except GarminConnectAuthenticationError as error:
-            raise RelinkRequired(str(error)) from error
+            raise login_failure(error) from error
         except GarminConnectTooManyRequestsError as error:
             raise RateLimited(str(error)) from error
         except (GarminConnectConnectionError, HTTPError) as error:

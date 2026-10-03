@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from garmin_analyzer.garmin import GarminError, GarminSession, RateLimited, RelinkRequired
-from garmin_analyzer.links import mark_needs_relink, open_link, save_tokens
+from garmin_analyzer.links import mark_needs_relink, open_link, save_tokens, sync_lock
 from garmin_analyzer.models import GarminLink, RawFile, RawPayload
 from garmin_analyzer.normalise import normalise
 from garmin_analyzer.tokens import TokenCipher
@@ -108,12 +108,16 @@ class Collector:
         garmin: GarminSession,
         pause: float = DEFAULT_PAUSE_SECONDS,
         sleep: Callable[[float], None] = time.sleep,
+        before_commit: Callable[[], None] = lambda: None,
     ) -> None:
         self.session = session
         self.user_id = user_id
         self.garmin = garmin
         self.pause = pause
         self.sleep = sleep
+        # Runs before every commit, so refreshed tokens are stored along with
+        # the data and survive a sync that is killed halfway.
+        self.before_commit = before_commit
         self.result = SyncResult()
 
     def sync(self, since: date, today: date, refetch_days: int = REFETCH_DAYS) -> SyncResult:
@@ -134,7 +138,7 @@ class Collector:
     def sync_account(self) -> None:
         for endpoint, method in ACCOUNT_ENDPOINTS.items():
             self.fetch(endpoint, ACCOUNT_KEY, method)
-        self.session.commit()
+        self.commit()
 
     def sync_day(self, day: date, *, refetch: bool) -> None:
         key = day.isoformat()
@@ -142,13 +146,13 @@ class Collector:
         for endpoint, method in DAILY_ENDPOINTS.items():
             if endpoint not in stored:
                 self.fetch(endpoint, key, method, key, day=day)
-        self.session.commit()
+        self.commit()
 
     def sync_range(self, since: date, today: date) -> None:
         """Metrics Garmin only returns properly for a range of days."""
         start, end = since.isoformat(), today.isoformat()
         self.fetch("max_metrics", f"{start}..{end}", "get_max_metrics_range", start, end, day=today)
-        self.session.commit()
+        self.commit()
 
     def sync_activities(self, since: date, today: date) -> None:
         activities = self.call(
@@ -165,7 +169,11 @@ class Collector:
                     self.fetch(endpoint, activity_id, method, activity_id)
             if not self.has_file(activity_id):
                 self.fetch_file(activity_id)
-            self.session.commit()
+            self.commit()
+
+    def commit(self) -> None:
+        self.before_commit()
+        self.session.commit()
 
     def call(self, endpoint: str, method: str, *args: Any) -> Any:
         """One paced request. A failed request is recorded and returns None."""
@@ -267,13 +275,37 @@ def collect_user(
     pause: float = DEFAULT_PAUSE_SECONDS,
     sleep: Callable[[float], None] = time.sleep,
 ) -> SyncResult:
-    """Sync one user. Raises NotLinked or RelinkRequired when no session can be opened."""
+    """Sync one user.
+
+    Raises NotLinked, RelinkRequired or GarminError when no session can be
+    opened, and AlreadySyncing when another sync of this user is running.
+    """
+    with sync_lock(session, user_id):
+        return sync_user(session, user_id, cipher, since, today, pause, sleep)
+
+
+def sync_user(
+    session: Session,
+    user_id: uuid.UUID,
+    cipher: TokenCipher,
+    since: date,
+    today: date,
+    pause: float,
+    sleep: Callable[[float], None],
+) -> SyncResult:
     try:
         garmin = open_link(session, user_id, cipher)
     finally:
         # Keeps the refreshed tokens, or the mark that a new sign-in is needed.
         session.commit()
-    collector = Collector(session, user_id, garmin, pause, sleep)
+    collector = Collector(
+        session,
+        user_id,
+        garmin,
+        pause,
+        sleep,
+        before_commit=lambda: save_tokens(session, user_id, cipher, garmin),
+    )
     now = datetime.now(UTC)
     last_catch_up = session.get_one(GarminLink, user_id).last_catch_up_at
     catching_up = last_catch_up is None or now - last_catch_up >= CATCH_UP_INTERVAL
