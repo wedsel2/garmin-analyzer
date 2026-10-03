@@ -184,7 +184,7 @@ def setup(
     try:
         if password != password_again:
             raise PasswordError("the two passwords are not the same")
-        user = add_user(db, email[:MAX_EMAIL_LENGTH])
+        user = add_user(db, normalise_email(email)[:MAX_EMAIL_LENGTH])
         # Gives the user its id.
         db.flush()
         set_password(db, user, password)
