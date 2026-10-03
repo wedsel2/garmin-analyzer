@@ -160,7 +160,8 @@ def collected(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     ) -> SyncResult:
         email = session.get_one(User, user_id).email
         runs.append({"email": email, "since": since, "today": today, "pause": pause})
-        return SyncResult(calls=20, rows=7)
+        # A catch-up covered more than was asked for.
+        return SyncResult(calls=20, rows=7, since=date(2020, 5, 17))
 
     monkeypatch.setattr(cli, "collect_user", fake_collect_user)
     return runs
@@ -174,7 +175,7 @@ def test_collect_without_an_email_syncs_every_active_link(
     assert [run["email"] for run in collected] == ["cyclist@example.com", "runner@example.com"]
     today = date.today()
     assert all((today - run["since"]).days == 2 and run["today"] == today for run in collected)
-    assert "runner@example.com" in capsys.readouterr().out
+    assert f"runner@example.com: 2020-05-17 to {today}, 20 requests" in capsys.readouterr().out
 
 
 def test_collect_options_select_user_days_and_pace(

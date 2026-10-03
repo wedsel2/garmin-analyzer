@@ -96,6 +96,8 @@ class SyncResult:
     errors: list[str] = field(default_factory=list)
     # Set when the sync ended early; the next run picks up what is missing.
     stopped: str | None = None
+    # The first day that was covered, which a catch-up moves further back.
+    since: date | None = None
 
 
 class Collector:
@@ -279,6 +281,7 @@ def collect_user(
     if catching_up:
         refetch_days = CATCH_UP_DAYS
         since = min(since, today - timedelta(days=CATCH_UP_DAYS - 1))
+    collector.result.since = since
     try:
         collector.sync(since, today, refetch_days)
     except RelinkRequired as error:

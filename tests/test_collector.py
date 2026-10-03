@@ -433,12 +433,14 @@ def summary_days(garmin: FakeGarmin) -> list[str]:
 def test_first_sync_covers_the_last_two_weeks(
     session: Session, user: User, cipher: TokenCipher, linked: FakeGarmin
 ) -> None:
-    run(session, user, cipher)
+    result = run(session, user, cipher)
     session.expire_all()
 
     days = summary_days(linked)
     assert len(days) == 14
     assert (max(days), min(days)) == ("2026-01-15", "2026-01-02")
+    # The result reports the period that was really covered, not the one asked for.
+    assert result.since == date(2026, 1, 2)
     assert session.get_one(GarminLink, user.id).last_catch_up_at is not None
 
 

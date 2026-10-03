@@ -1,6 +1,7 @@
 # 9. Garmin access through python-garminconnect, linked by browser sign-in, storing only encrypted tokens
 
-- Status: Accepted (revised after the phase 2 spike, see [findings](../garmin-spike.md))
+- Status: Accepted (revised after the phase 2 spike, see [findings](../garmin-spike.md);
+  token refresh confirmed on 2026-10-03)
 - Date: 2026-10-01
 
 ## Context

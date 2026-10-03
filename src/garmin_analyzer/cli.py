@@ -97,7 +97,7 @@ def collect(engine: Engine, args: argparse.Namespace) -> int:
                 failed = True
                 continue
             print(
-                f"{user.email}: {since} to {today}, {result.calls} requests, "
+                f"{user.email}: {result.since or since} to {today}, {result.calls} requests, "
                 f"{result.rows} rows, {len(result.errors)} failed requests"
             )
             for failure in result.errors:
