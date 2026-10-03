@@ -21,15 +21,27 @@ class FailureLimiter:
         self._failures: dict[str, list[float]] = {}
         self._lock = threading.Lock()
 
-    def blocked(self, key: str) -> bool:
-        with self._lock:
-            self._forget_old()
-            return len(self._failures.get(key, ())) >= self._limit
+    def attempt(self, key: str) -> bool:
+        """Count an attempt as a failure, or return False when the key is blocked.
 
-    def record_failure(self, key: str) -> None:
+        Counting happens before the outcome is known, in the same step as the
+        check, so attempts made at the same moment cannot all slip through.
+        Call forgive or reset when the attempt turns out to have succeeded.
+        """
         with self._lock:
             self._forget_old()
-            self._failures.setdefault(key, []).append(self._clock())
+            times = self._failures.setdefault(key, [])
+            if len(times) >= self._limit:
+                return False
+            times.append(self._clock())
+            return True
+
+    def forgive(self, key: str) -> None:
+        """Take back the latest attempt of a key."""
+        with self._lock:
+            times = self._failures.get(key)
+            if times:
+                times.pop()
 
     def reset(self, key: str) -> None:
         with self._lock:
@@ -42,6 +54,6 @@ class FailureLimiter:
         for key, times in list(self._failures.items()):
             recent = [moment for moment in times if moment > horizon]
             if recent:
-                self._failures[key] = recent
+                times[:] = recent
             else:
                 del self._failures[key]

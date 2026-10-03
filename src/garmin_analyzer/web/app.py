@@ -223,17 +223,17 @@ def login(
     address = request.client.host if request.client else "unknown"
     by_email: FailureLimiter = request.app.state.failures_by_email
     by_address: FailureLimiter = request.app.state.failures_by_address
-    if by_email.blocked(email) or by_address.blocked(address):
+    # Counted as failed before the password is checked: see FailureLimiter.attempt.
+    if not by_address.attempt(address) or not by_email.attempt(email):
         return login_page(request, email, "Too many failed attempts. Try again in 15 minutes.", 429)
 
     user = db.scalar(select(User).where(User.email == email))
     matches = verify_password(user.password_hash if user else None, password)
     if user is None or not matches:
-        by_email.record_failure(email)
-        by_address.record_failure(address)
         return login_page(request, email, "Wrong email address or password.", 401)
 
     by_email.reset(email)
+    by_address.forgive(address)
     if needs_rehash(user.password_hash):
         # Not possible for a password that the current rules would refuse.
         with suppress(PasswordError):
