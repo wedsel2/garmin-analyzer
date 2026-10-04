@@ -27,8 +27,9 @@ from garmin_analyzer.passwords import (
 )
 from garmin_analyzer.ratelimit import FailureLimiter
 from garmin_analyzer.sessions import end_session
+from garmin_analyzer.tokens import TokenCipher
 from garmin_analyzer.users import UserError, add_user, normalise_email, set_password
-from garmin_analyzer.web import accounts
+from garmin_analyzer.web import accounts, garmin_link
 from garmin_analyzer.web.shared import (
     COOKIE,
     HERE,
@@ -213,10 +214,14 @@ def to_sign_in(request: Request, error: Exception) -> Response:
     return redirect("/login")
 
 
-def create_app(engine: Engine) -> FastAPI:
+def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
     # No JSON API yet, so nothing to document.
     app = FastAPI(title="Garmin Analyzer", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.sessions = make_session_factory(engine)
+    app.state.cipher = cipher
+    app.state.link_attempts = FailureLimiter(
+        garmin_link.LINK_ATTEMPTS, garmin_link.LINK_PERIOD_SECONDS
+    )
     app.state.failures_by_email = FailureLimiter(FAILED_SIGN_INS_PER_EMAIL, SIGN_IN_PERIOD_SECONDS)
     app.state.failures_by_address = FailureLimiter(
         FAILED_SIGN_INS_PER_ADDRESS, SIGN_IN_PERIOD_SECONDS
@@ -228,4 +233,5 @@ def create_app(engine: Engine) -> FastAPI:
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
     app.include_router(router)
     app.include_router(accounts.router)
+    app.include_router(garmin_link.router)
     return app

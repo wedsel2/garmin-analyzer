@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from garmin_analyzer.models import DailySummary, GarminLink, User
 from garmin_analyzer.passwords import verify_password
+from garmin_analyzer.tokens import TokenCipher, generate_key
 from garmin_analyzer.users import NO_PASSWORD, add_user, set_password
 from garmin_analyzer.web.app import FAILED_SIGN_INS_PER_EMAIL, create_app
 from garmin_analyzer.web.shared import COOKIE
@@ -19,11 +20,12 @@ from garmin_analyzer.web.shared import COOKIE
 ADMIN = "admin@example.com"
 FRIEND = "friend@example.com"
 PASSWORD = "correct horse battery"  # noqa: S105
+CIPHER = TokenCipher(generate_key())
 LINK = re.compile(r"http://testserver/set-password/([A-Za-z0-9_-]{43})")
 
 
 def make_client(db: Engine) -> TestClient:
-    return TestClient(create_app(db), follow_redirects=False)
+    return TestClient(create_app(db, CIPHER), follow_redirects=False)
 
 
 @pytest.fixture
