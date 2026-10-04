@@ -11,7 +11,7 @@ intentionally less detailed.
 | 3 | Storage and collector | Schema and migrations, raw and normalised layers, synthetic fixtures per metric family, token encryption, and `user-add`, `link` and `collect` from the command line | Done, first live run on 2026-10-03 |
 | 4 | Web foundation | `serve`, accounts, invites, Garmin link flow, base layout and styling, and a scheduled worker that runs `collect` | Done |
 | 5 | Dashboards | Overview plus pages per metric family, date range selection | Done |
-| 6 | Publish | Tunnel hostname, Cloudflare Access, installable on Android, self-hosting guide | |
+| 6 | Publish | Tunnel hostname, Cloudflare Access, installable on Android, [self-hosting guide](self-hosting.md) | Built; the owner's instance is still to be published |
 | 7 | Goals | Goal management per user | |
 | 8 | AI analysis | Claude-based analysis and training recommendations | |
 
@@ -28,6 +28,15 @@ and the first live collection.
    HRV on one time axis, bucketed on the server. Done.
 4. Training page. Done.
 5. Activities list and detail, with the route drawn as a line without a map. Done.
+
+## Phase 6 order
+
+1. Manifest, icons and a service worker with an offline page. Done.
+2. Behind a proxy: tests, and a line in the log for a proxy that is not
+   trusted. Done.
+3. Self-hosting guide. Done.
+4. The owner's instance: hostname on the tunnel, Access, and installing on a
+   phone. Installing has only been tried in a desktop browser so far.
 
 ## Deferred on purpose
 

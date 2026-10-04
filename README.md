@@ -2,15 +2,20 @@
 
 Collects Garmin metrics into PostgreSQL so they can be visualised and analysed.
 
-> Status: accounts, invites, linking Garmin and automatic collection work.
-> Dashboards come next, so there is nothing to look at yet but the state of
-> your link.
+> Status: accounts, invites, linking Garmin, automatic collection and the
+> dashboards work, and the site can be installed as an app on Android. Goals
+> and AI-based analysis come later; see the [roadmap](docs/roadmap.md).
+
+To run your own instance from a released image, and to publish it, follow the
+[self-hosting guide](docs/self-hosting.md). What follows is the short version,
+from a checkout.
 
 ## Run
 
 ```bash
 cp .env.example .env                                  # set POSTGRES_PASSWORD
-docker compose run --rm web generate-key              # put the result in .env as TOKEN_ENCRYPTION_KEY
+docker compose build                                  # or set APP_IMAGE in .env to a released image
+docker compose run --rm --no-deps web generate-key    # put the result in .env as TOKEN_ENCRYPTION_KEY
 docker compose up --detach                            # applies migrations, serves http://localhost:8000, starts the worker
 ```
 
@@ -81,6 +86,7 @@ Dependencies (Python, base images, actions, pre-commit hooks) are kept current b
 
 ## Documentation
 
+- [Self-hosting guide](docs/self-hosting.md)
 - [Architecture](docs/architecture.md) and [roadmap](docs/roadmap.md)
 - Contributing with Claude Code: [CLAUDE.md](CLAUDE.md) and `.claude/` hold the
   shared project instructions, permissions and skills.
