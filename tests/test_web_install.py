@@ -1,5 +1,6 @@
 """Tests for what makes the site installable: the manifest, its icons and the service worker."""
 
+import hashlib
 import json
 import re
 import struct
@@ -73,6 +74,15 @@ def test_the_service_worker_is_served_from_the_top_of_the_site(client: TestClien
     assert response.headers["content-type"].startswith("text/javascript")
     assert response.headers["cache-control"] == "no-store"
     assert "default-src 'self'" in response.headers["content-security-policy"]
+
+
+def test_the_service_worker_changes_when_the_offline_page_does(client: TestClient) -> None:
+    page = hashlib.sha256(client.get("/offline").content).hexdigest()[:16]
+
+    script = client.get("/sw.js").text
+
+    assert script.endswith(f"// Offline page {page}\n")
+    assert client.get("/sw.js").text == script
 
 
 def test_the_service_worker_keeps_only_the_offline_page_and_its_files(client: TestClient) -> None:

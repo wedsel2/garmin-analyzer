@@ -3,13 +3,14 @@
 See ADR 8 for accounts and ADR 15 for how sessions and forms are protected.
 """
 
+import hashlib
 from contextlib import suppress
 from typing import Annotated
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, FastAPI, Form, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse, Response
+from fastapi.responses import PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine, func, select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -114,16 +115,23 @@ def healthz(db: Db) -> PlainTextResponse:
     return PlainTextResponse("ok")
 
 
-@router.get("/sw.js")
-def service_worker() -> FileResponse:
-    """The service worker, at the top of the site: it only covers paths below its own."""
-    return FileResponse(HERE / "static" / "sw.js", media_type="text/javascript")
-
-
 @router.get("/offline")
 def offline(request: Request) -> Response:
     """What the service worker shows without a connection. The same for everyone."""
     return templates.TemplateResponse(request, "offline.html", {})
+
+
+@router.get("/sw.js")
+def service_worker(request: Request) -> Response:
+    """The service worker, at the top of the site: it only covers paths below its own.
+
+    A browser stores the offline page when it installs the worker, and installs
+    it again only when the script has changed. So the script names the page it
+    belongs to, and a release that changes the page replaces the stored one.
+    """
+    script = (HERE / "static" / "sw.js").read_text(encoding="utf-8")
+    page = hashlib.sha256(bytes(offline(request).body)).hexdigest()[:16]
+    return Response(f"{script}\n// Offline page {page}\n", media_type="text/javascript")
 
 
 @router.get("/")

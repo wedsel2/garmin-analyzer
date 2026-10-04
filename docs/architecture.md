@@ -68,7 +68,9 @@ The service worker stores three things: the page at `/offline`, which is the
 same for everyone, the stylesheet and the icon. It shows that page when a page
 cannot be loaded. It never stores a page with data or an answer of the API, so
 no health data stays on the device and nothing is left to clear at sign-out.
-Everything else goes to the network as before.
+Everything else goes to the network as before. The script ends with a
+fingerprint of the offline page, so a release that changes that page makes the
+browser install the worker again and store the new one.
 
 ### Dashboards
 
