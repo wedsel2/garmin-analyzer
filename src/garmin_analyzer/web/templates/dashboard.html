@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block scripts %}{% include "_chart_scripts.html" %}{% endblock %}
+{% block content %}
+{# Picking a period replaces this element with the one of the page asked for. #}
+<div id="dashboard">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-semibold">{{ title }}</h1>
+    <nav class="join" aria-label="Period"
+         hx-boost="true" hx-target="#dashboard" hx-select="#dashboard" hx-swap="outerHTML">
+      {% for key, option in periods.items() %}
+      <a class="btn join-item btn-sm {{ 'btn-primary' if key == active }}" href="?period={{ key }}"
+         {% if key == active %}aria-current="true"{% endif %}>{{ option.label }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-2">
+    {% for view in charts %}
+    <section class="card bg-base-100 shadow-sm">
+      <div class="card-body gap-1 p-4">
+        <h2 class="card-title text-base">{{ view.chart.title }}</h2>
+        {% if view.average is not none %}
+        <p>
+          <span class="text-2xl font-semibold">{{ view.average|number(view.unit) }}</span>
+          <span class="text-sm opacity-70">{{ view.unit }} on average</span>
+        </p>
+        {% endif %}
+        {% if view.src %}
+        <div class="h-56" role="img" aria-label="{{ view.chart.title }} over {{ period.label|lower }}"
+             data-chart="{{ view.chart.kind }}" data-src="{{ view.src }}"
+             data-metrics="{{ view.chart.metrics|join(',') }}" data-labels="{{ view.labels }}"
+             data-unit="{{ view.unit }}" data-per="{{ 'week' if period.weekly else 'day' }}"></div>
+        {% if view.chart.about %}<p class="text-sm opacity-70">{{ view.chart.about }}</p>{% endif %}
+        {% else %}
+        <p class="py-8 text-center text-sm opacity-70">{{ view.missing }}</p>
+        {% endif %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

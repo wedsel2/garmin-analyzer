@@ -6,6 +6,8 @@ ARG TAILWIND_VERSION=4.3.3
 ARG DAISYUI_VERSION=5.7.47
 # renovate: datasource=npm depName=echarts
 ARG ECHARTS_VERSION=6.1.0
+# renovate: datasource=npm depName=htmx.org
+ARG HTMX_VERSION=2.0.11
 # Set by the build to the architecture the image is for.
 ARG TARGETARCH
 
@@ -59,14 +61,18 @@ COPY src/garmin_analyzer/web/templates src/garmin_analyzer/web/templates
 RUN tailwindcss --input styles/app.css --output /out/app.css --minify
 
 
-# The static files that are not in the repository: the stylesheet and the chart
-# library, checked like the downloads above. Also what scripts/build-static.sh
+# The static files that are not in the repository: the stylesheet, the chart
+# library and HTMX, checked like the downloads above. Also what scripts/build-static.sh
 # writes for local use.
 FROM scratch AS static-out
 ARG ECHARTS_VERSION
+ARG HTMX_VERSION
 ADD --checksum=sha256:b66b25aeb4df84e33199dc21694014d336d222cbd9deb0e5a7c14bd6aa0d0fd0 --chmod=644 \
     https://cdn.jsdelivr.net/npm/echarts@${ECHARTS_VERSION}/dist/echarts.min.js \
     /echarts.min.js
+ADD --checksum=sha256:d6fdc75f204e6bdefa99b69bf1e6d4ac69b8a364f77929f45c13476b4000f717 --chmod=644 \
+    https://cdn.jsdelivr.net/npm/htmx.org@${HTMX_VERSION}/dist/htmx.min.js \
+    /htmx.min.js
 COPY --from=css /out/app.css /app.css
 
 

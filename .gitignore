@@ -14,6 +14,7 @@ junit.xml
 # Made by the image build or scripts/build-static.sh
 src/garmin_analyzer/web/static/app.css
 src/garmin_analyzer/web/static/echarts.min.js
+src/garmin_analyzer/web/static/htmx.min.js
 
 # Claude Code personal overrides
 .claude/settings.local.json

@@ -64,7 +64,7 @@ import urllib.request as r
 assert b"Sign in" in r.urlopen("http://127.0.0.1:8000/login", timeout=5).read()
 css = r.urlopen("http://127.0.0.1:8000/static/app.css", timeout=5).read()
 assert b".btn" in css and b".navbar" in css, "stylesheet is not the compiled one"
-for script in ("echarts.min.js", "charts.js"):
+for script in ("echarts.min.js", "htmx.min.js", "charts.js"):
     assert r.urlopen("http://127.0.0.1:8000/static/" + script, timeout=5).status == 200
 '
 

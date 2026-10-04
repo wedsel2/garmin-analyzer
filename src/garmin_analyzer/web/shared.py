@@ -1,6 +1,7 @@
 """What the pages of the web interface have in common."""
 
 from collections.abc import Iterator
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -90,8 +91,14 @@ def start_session(request: Request, db: Session, user: User) -> RedirectResponse
     return response
 
 
-def number(value: float) -> str:
-    return f"{value:,.0f}"
+def today() -> date:
+    """The day by the server's clock, as the collector has it."""
+    return datetime.now(UTC).date()
+
+
+def number(value: float, unit: str = "") -> str:
+    """A figure for a page: whole, except hours, which get a decimal."""
+    return f"{value:,.1f}" if unit == "h" else f"{value:,.0f}"
 
 
 def kilometres(metres: float | None) -> str:
