@@ -27,6 +27,27 @@
     {% endif %}
   </div>
 </a>
+{% if linked %}
+<section class="card mt-6 max-w-md bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Your data</h2>
+    {% if link.sync_requested_at %}
+    <p class="alert alert-info alert-soft" role="status">Asked for at {{ link.sync_requested_at.strftime("%H:%M") }} UTC{% if link.sync_requested_days in collect_periods %}: {{ collect_periods[link.sync_requested_days] | lower }}{% endif %}. Collecting starts within a few minutes.</p>
+    {% else %}
+    <p class="opacity-70">Your data is collected by itself at an interval. Collect now to load a period from Garmin again without waiting. A longer period takes longer: 4 weeks is about ten minutes.</p>
+    {% endif %}
+    <form method="post" action="/account/collect" class="flex flex-col gap-1">
+      <label class="label" for="days">Period</label>
+      <select class="select w-full" id="days" name="days"{% if link.sync_requested_at %} disabled{% endif %}>
+        {% for days, label in collect_periods.items() %}
+        <option value="{{ days }}"{% if days == (link.sync_requested_days or 3) %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary mt-4" type="submit"{% if link.sync_requested_at %} disabled{% endif %}>Collect now</button>
+    </form>
+  </div>
+</section>
+{% endif %}
 <section class="card mt-6 max-w-md bg-base-100 shadow-sm">
   <div class="card-body">
     <h2 class="card-title">Profile</h2>

@@ -27,6 +27,7 @@ the old one.
 | [19](0019-chart-library-fetched-in-the-image-build.md) | The chart library is fetched in the image build, not committed | Accepted |
 | [20](0020-goals-as-two-tables-progress-computed.md) | Goals are two typed tables, and progress is computed when read | Accepted |
 | [21](0021-coach-reports-by-claude-opt-in.md) | The coach is a report that Claude writes on request, opt-in per user | Accepted |
+| [22](0022-sync-on-request-through-the-worker.md) | A user asks for a sync on the account page and the worker runs it | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.

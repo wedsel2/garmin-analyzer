@@ -19,9 +19,14 @@ from garmin_analyzer.db import make_session_factory
 from garmin_analyzer.models import GarminLink, LinkStatus, User
 
 TICK_SECONDS = 60.0
+# A sync asked for on the account page does not wait for the interval, but it
+# does wait this long after the last sync or attempt, so pressing the button
+# again and again does not become a stream of requests to Garmin.
+REQUEST_GAP = timedelta(minutes=5)
 
 # Syncs one user and reports on it. Must not raise for a sync that failed.
-SyncOne = Callable[[Session, User], object]
+# The number is how many days the user asked to have fetched again, if they asked.
+SyncOne = Callable[[Session, User, int | None], object]
 
 
 def due_users(
@@ -32,19 +37,34 @@ def due_users(
     A sync that failed or stopped early leaves the time of the last sync as it
     was. The attempts, kept in memory, stop such a user from being tried again
     every minute.
+
+    For a user who asked for a sync, REQUEST_GAP takes the place of the interval.
     """
     before = now - interval
-    users = session.scalars(
-        select(User)
+    rows = session.execute(
+        select(User, GarminLink.sync_requested_at, GarminLink.last_synced_at)
         .join(GarminLink, GarminLink.user_id == User.id)
         .where(
             GarminLink.status == LinkStatus.ACTIVE,
-            or_(GarminLink.last_synced_at.is_(None), GarminLink.last_synced_at <= before),
+            or_(
+                GarminLink.last_synced_at.is_(None),
+                GarminLink.last_synced_at <= before,
+                GarminLink.sync_requested_at.is_not(None),
+            ),
         )
         # Whoever has never been synced, such as a user who just linked, goes first.
         .order_by(GarminLink.last_synced_at.asc().nulls_first(), User.email)
     )
-    return [user for user in users if user.id not in attempted or attempted[user.id] <= before]
+    users = []
+    for user, requested, synced in rows:
+        limit = before
+        if requested is not None:
+            limit = max(before, now - REQUEST_GAP)
+            if synced is not None and synced > limit:
+                continue
+        if user.id not in attempted or attempted[user.id] <= limit:
+            users.append(user)
+    return users
 
 
 def run_due(
@@ -58,8 +78,14 @@ def run_due(
     with make_session_factory(engine)() as session:
         users = due_users(session, now or datetime.now(UTC), interval, attempted)
         for user in users:
+            # A request is spent when its sync starts, however that sync ends:
+            # one press of the button is one sync.
+            link = session.get_one(GarminLink, user.id)
+            days = link.sync_requested_days if link.sync_requested_at else None
+            link.sync_requested_at = link.sync_requested_days = None
+            session.commit()
             try:
-                sync_one(session, user)
+                sync_one(session, user, days)
             finally:
                 attempted[user.id] = now or datetime.now(UTC)
     return len(users)

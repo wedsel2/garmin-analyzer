@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -492,6 +492,20 @@ def test_sync_soon_after_a_catch_up_fetches_recent_days_only(
     run(session, user, cipher)
 
     assert summary_days(linked) == ["2026-01-15"]
+
+
+def test_a_sync_fetches_as_many_stored_days_again_as_it_is_asked_to(
+    session: Session, user: User, cipher: TokenCipher, linked: FakeGarmin
+) -> None:
+    since = TODAY - timedelta(days=27)
+    collect_user(session, user.id, cipher, since, TODAY, pause=0, sleep=lambda seconds: None)
+    linked.calls.clear()
+
+    collect_user(
+        session, user.id, cipher, since, TODAY, pause=0, sleep=lambda seconds: None, refetch_days=28
+    )
+
+    assert len(summary_days(linked)) == 28
 
 
 def test_catch_up_a_week_later_fetches_stored_days_again(

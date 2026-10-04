@@ -3,14 +3,14 @@
 import re
 import uuid
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
-from garmin_analyzer.models import DailySummary, GarminLink, User
+from garmin_analyzer.models import DailySummary, GarminLink, LinkStatus, User
 from garmin_analyzer.passwords import verify_password
 from garmin_analyzer.tokens import TokenCipher, generate_key
 from garmin_analyzer.users import NO_PASSWORD, add_user, set_password
@@ -442,8 +442,98 @@ def test_the_profile_form_cannot_be_posted_from_another_site(admin: TestClient, 
     assert stored_profile(db) == (ADMIN, None)
 
 
+def add_link(db: Engine, email: str, status: LinkStatus = LinkStatus.ACTIVE) -> None:
+    with Session(db) as session:
+        session.add(GarminLink(user_id=user_id(db, email), encrypted_tokens=b"x", status=status))
+        session.commit()
+
+
+def sync_requested(db: Engine, email: str) -> datetime | None:
+    with Session(db) as session:
+        return session.get_one(GarminLink, user_id(db, email)).sync_requested_at
+
+
+def test_a_user_chooses_the_period_to_collect_again(admin: TestClient, db: Engine) -> None:
+    add_link(db, ADMIN)
+    page = admin.get("/account").text
+    assert '<option value="3" selected>Last 3 days</option>' in page
+    assert '<option value="28">Last 4 weeks</option>' in page
+
+    admin.post("/account/collect", data={"days": "28"})
+
+    with Session(db) as session:
+        assert session.get_one(GarminLink, user_id(db, ADMIN)).sync_requested_days == 28
+    page = admin.get("/account").text
+    assert "UTC: last 4 weeks." in page
+    assert '<option value="28" selected>' in page
+
+
+@pytest.mark.parametrize("days", ["29", "365", "0", "-3", "many"])
+def test_only_offered_periods_can_be_collected(admin: TestClient, db: Engine, days: str) -> None:
+    add_link(db, ADMIN)
+
+    response = admin.post("/account/collect", data={"days": days})
+
+    assert response.status_code in (400, 422)
+    assert sync_requested(db, ADMIN) is None
+
+
+def test_a_user_asks_for_their_data_to_be_collected_now(admin: TestClient, db: Engine) -> None:
+    add_link(db, ADMIN)
+    page = admin.get("/account").text
+    assert 'action="/account/collect"' in page
+    assert "Asked for at" not in page
+
+    response = admin.post("/account/collect")
+
+    assert (response.status_code, response.headers["location"]) == (303, "/account")
+    asked = sync_requested(db, ADMIN)
+    assert asked is not None
+    page = admin.get("/account").text
+    assert "Asked for at" in page
+    assert "disabled" in page
+
+    # Asking again while the worker has not started changes nothing.
+    admin.post("/account/collect")
+
+    assert sync_requested(db, ADMIN) == asked
+
+
+def test_collecting_is_asked_for_your_own_data_only(admin: TestClient, db: Engine) -> None:
+    invite(admin)
+    add_link(db, ADMIN)
+    add_link(db, FRIEND)
+
+    admin.post("/account/collect")
+
+    assert sync_requested(db, FRIEND) is None
+
+
+def test_collecting_cannot_be_asked_for_without_a_working_link(
+    admin: TestClient, db: Engine
+) -> None:
+    assert 'action="/account/collect"' not in admin.get("/account").text
+    assert admin.post("/account/collect").headers["location"] == "/garmin"
+
+    add_link(db, ADMIN, LinkStatus.NEEDS_RELINK)
+
+    assert 'action="/account/collect"' not in admin.get("/account").text
+    assert admin.post("/account/collect").headers["location"] == "/garmin"
+    assert sync_requested(db, ADMIN) is None
+
+
+def test_collecting_cannot_be_asked_for_from_another_site(admin: TestClient, db: Engine) -> None:
+    add_link(db, ADMIN)
+
+    response = admin.post("/account/collect", headers={"Sec-Fetch-Site": "cross-site"})
+
+    assert response.status_code == 403
+    assert sync_requested(db, ADMIN) is None
+
+
 def test_the_account_page_needs_a_signed_in_user(anonymous: TestClient) -> None:
     assert anonymous.get("/account").headers["location"] == "/login"
+    assert anonymous.post("/account/collect").headers["location"] == "/login"
     response = anonymous.post("/account/profile", data={"name": "x", "email": "x@example.com"})
     assert response.headers["location"] == "/login"
     response = anonymous.post(

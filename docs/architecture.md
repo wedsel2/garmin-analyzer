@@ -272,6 +272,13 @@ first. A user whose sync failed is tried again an interval later. `collect`
 stays for syncing by hand and for history: `collect --since` fetches what lies
 before the catch-up. See [ADR 17](adr/0017-worker-as-a-polling-loop.md).
 
+A user who does not want to wait chooses a period, up to four weeks, and
+presses "Collect now" on the account page. That only stores the request on
+their link; the worker then fetches every day of the period again, and syncs
+them on its next round instead of after the interval, but not within five
+minutes of their last sync or attempt, and clears the request when it starts.
+See [ADR 22](adr/0022-sync-on-request-through-the-worker.md).
+
 ## Data
 
 Two layers, see [ADR 10](adr/0010-raw-payloads-plus-normalised-tables.md):
