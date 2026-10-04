@@ -63,6 +63,7 @@
           textStyle: { color: colour.text, fontSize: 12 },
           // Plain text: the page's content security policy refuses inline styles.
           formatter: ([point]) => {
+            if (!point) return "";
             const value = values[point.dataIndex];
             const day = dayFormat.format(new Date(point.name));
             return value === null
@@ -75,7 +76,10 @@
           {
             type: "line",
             data: values,
-            showSymbol: false,
+            // As wide as the line, so a day between two days without a value still shows.
+            symbol: "circle",
+            symbolSize: 2,
+            showAllSymbol: true,
             lineStyle: { width: 2, color: colour.line },
             itemStyle: { color: colour.line },
             markLine: average && {
