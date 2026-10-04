@@ -104,7 +104,11 @@ def parse_sport(text: str) -> str | None:
 
 def is_sport(type_key: str | None, sport: str | None) -> bool:
     """Whether an activity of Garmin's type belongs to the sport; anything does to none."""
-    return sport is None or any(word in (type_key or "") for word in SPORTS[sport])
+    if sport is None:
+        return True
+    kind = type_key or ""
+    # Motorcycling has "cycling" in it.
+    return "motor" not in kind and any(word in kind for word in SPORTS[sport])
 
 
 def set_event(
@@ -140,7 +144,10 @@ def set_weekly_goal(goal: WeeklyGoal, measure: str, target: str, sport: str) -> 
         kind = Measure(measure)
     except ValueError:
         raise GoalError("pick what to count") from None
-    amount = parse_number(target, "the target", MEASURES[kind].most)
+    # One decimal, as a week is added up and shown: 2.25 could not be reached at 2.2.
+    amount = round(parse_number(target, "the target", MEASURES[kind].most), 1)
+    if amount == 0:
+        raise GoalError("the target must be at least 0.1")
     if kind is Measure.ACTIVITIES and amount != int(amount):
         raise GoalError("a number of activities is a whole number")
     of = parse_sport(sport)

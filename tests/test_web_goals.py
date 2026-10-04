@@ -139,6 +139,8 @@ def test_a_sport_covers_the_kinds_garmin_tells_apart() -> None:
     assert goals.is_sport("virtual_ride", "cycling")
     assert goals.is_sport("lap_swimming", "swimming")
     assert not goals.is_sport("hiking", "cycling")
+    assert not goals.is_sport("motorcycling", "cycling")
+    assert goals.is_sport("motorcycling", None)
     assert not goals.is_sport(None, "running")
     assert goals.is_sport(None, None)
 
@@ -362,6 +364,7 @@ def test_an_event_can_be_changed_and_removed(client: TestClient, db: Engine, use
         ({"measure": "hours", "target": "101"}, "The target must be more than 0 and at most 100."),
         ({"measure": "activities", "target": "2.5"}, "A number of activities is a whole number."),
         ({"measure": "distance", "target": "40", "sport": "chess"}, "Pick a sport from the list."),
+        ({"measure": "hours", "target": "0.04"}, "The target must be at least 0.1."),
         ({}, "Pick what to count."),
     ],
 )
@@ -386,6 +389,10 @@ def test_a_weekly_goal_can_be_changed_and_removed(
     assert 'value="40"' in form
     assert '<option value="running" selected>' in form
 
+    # A target has one decimal, as the sum of a week has.
+    assert client.post(f"/goals/weekly/{goal_id}", data={"measure": "hours", "target": "2.25"})
+    with Session(db) as session:
+        assert session.get_one(WeeklyGoal, goal_id).target == 2.2
     data = {"measure": "activities", "target": "1", "sport": ""}
     assert client.post(f"/goals/weekly/{goal_id}", data=data).status_code == 303
     assert "1 activity a week" in client.get("/goals").text
