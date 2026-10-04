@@ -116,6 +116,24 @@ def test_a_request_is_spent_when_its_sync_starts(db: Engine) -> None:
     assert run_due(db, syncs, HOUR, attempted, NOW + REQUEST_GAP) == 0
 
 
+def test_a_link_removed_during_the_round_does_not_stop_the_round(db: Engine) -> None:
+    add_linked(db, "a@example.com", None)
+    removed = add_linked(db, "b@example.com", None)
+    add_linked(db, "c@example.com", None)
+    emails: list[str] = []
+
+    def sync(session: Session, user: User, days: int | None) -> None:
+        emails.append(user.email)
+        if user.email == "a@example.com":
+            with Session(db) as other:
+                other.delete(other.get_one(GarminLink, removed))
+                other.commit()
+
+    assert run_due(db, sync, HOUR, {}, NOW) == 3
+    # The sync itself reports that the user has no link.
+    assert emails == ["a@example.com", "b@example.com", "c@example.com"]
+
+
 def test_run_due_syncs_each_due_user_once_and_remembers_the_attempt(db: Engine) -> None:
     add_linked(db, "a@example.com", None)
     add_linked(db, "b@example.com", timedelta(hours=3))

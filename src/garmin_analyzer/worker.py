@@ -80,10 +80,13 @@ def run_due(
         for user in users:
             # A request is spent when its sync starts, however that sync ends:
             # one press of the button is one sync.
-            link = session.get_one(GarminLink, user.id)
-            days = link.sync_requested_days if link.sync_requested_at else None
-            link.sync_requested_at = link.sync_requested_days = None
-            session.commit()
+            # The link may be gone by now: the sync of an earlier user can take long.
+            link = session.get(GarminLink, user.id)
+            days = None
+            if link is not None and link.sync_requested_at is not None:
+                days = link.sync_requested_days
+                link.sync_requested_at = link.sync_requested_days = None
+                session.commit()
             try:
                 sync_one(session, user, days)
             finally:
