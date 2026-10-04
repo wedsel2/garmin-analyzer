@@ -81,6 +81,30 @@ makes a new link for someone who lost their password, and removes users with
 their data. Each user links their own Garmin account and sees only their own
 data.
 
+## The coach
+
+On the **Coach** page a user can have Claude, an AI model of Anthropic, write a
+report on their figures and goals with advice for the coming week. It is off
+for every user until they turn it on themselves, on a page that lists what is
+then sent to Anthropic. Nothing is sent for anyone else, or without asking.
+
+A report needs an Anthropic API key, which costs money per report. A
+membership of claude.ai does not include it; the key and its credit come from
+<https://platform.claude.com>.
+
+- Put `ANTHROPIC_API_KEY` in `.env` and run `docker compose up --detach`, and
+  you pay for every user. Each user gets at most `COACH_REPORTS_PER_DAY`
+  reports in 24 hours, 3 unless you set another number.
+- Or leave it out: a user can enter a key of their own on the Coach page. It is
+  stored encrypted with `TOKEN_ENCRYPTION_KEY`, is used instead of yours and
+  has no limit.
+
+`COACH_MODEL` names another Claude model than the default.
+
+Without any key the page still helps: **Ask Claude yourself** gives a user
+their figures and goals as a text to paste into a chat with Claude, on
+whatever membership they have. The instance sends nothing then.
+
 ## Back up
 
 Two things make up an instance: the database and `.env`.
@@ -130,7 +154,9 @@ docker compose run --rm web collect
 `collect` stores the access of every user it syncs with the new key. After
 that, remove the old key from `.env` and run `docker compose up --detach`
 again. A user whose link needed a new sign-in at that moment has to link again
-anyway.
+anyway. A user's own API key for the coach is stored with the new key when
+they ask for a report; one that was not used in the meantime has to be entered
+again.
 
 ## Reach it from your network
 

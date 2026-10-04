@@ -35,6 +35,8 @@ def test_upgrade_creates_the_schema(empty_db: Engine) -> None:
         "activity_zones",
         "goal_events",
         "weekly_goals",
+        "coach_settings",
+        "coach_reports",
         "users",
         "sessions",
         "password_links",

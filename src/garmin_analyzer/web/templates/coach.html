@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Coach{% endblock %}
+{% block scripts %}
+{# HTMX may not add styles or evaluate text: the content security policy refuses both. #}
+<meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
+<script src="/static/htmx.min.js" defer></script>
+{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-2xl font-semibold">Coach</h1>
+{% if error %}<p class="alert alert-error alert-soft mb-4" role="alert">{{ error }}</p>{% endif %}
+
+<section class="card mb-6 bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Ask Claude yourself</h2>
+    <p>Take your figures and goals to a chat with Claude as a text to paste. It costs nothing here,
+       this instance sends nothing, and in a chat you can go on asking.</p>
+    <div class="card-actions">
+      <a class="btn {{ 'btn-primary' if not enabled }}" href="/coach/figures">Get the text</a>
+    </div>
+  </div>
+</section>
+
+{% if not enabled %}
+<section class="card bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Or let Claude read your figures here</h2>
+    <p>The coach is Claude, an AI model of Anthropic. When you ask for a report, it reads your
+       figures and goals and writes how you are doing and what to do in the coming week. The
+       report is kept on this page. It needs an API key of Anthropic, of this instance or your own.</p>
+    <p>For that, this goes from this instance to Anthropic, each time you ask and never otherwise:</p>
+    <ul class="list-disc pl-6">
+      <li>per day of the last {{ days }} days: sleep, HRV, resting heart rate, stress, body battery,
+          training readiness, training load and steps, and their averages per week of the {{ weeks }} weeks before;</li>
+      <li>what Garmin says of your training status, VO2 max, predicted race times, and your age and fitness age;</li>
+      <li>your activities of the last {{ days }} days: when, the sport, time, distance, heart rate, climb, training effect, load and power,
+          and your hours per sport of every week;</li>
+      <li>your goals, with the names and notes of your events as you wrote them.</li>
+    </ul>
+    <p>Not sent: your name and email address, the names of activities, places and routes,
+       and anything measured within a day or an activity.</p>
+    <p class="text-sm opacity-70">Anthropic handles it under its terms for the API. You can turn
+       the coach off again and remove the reports whenever you like.</p>
+    <form method="post" action="/coach/enable" class="card-actions mt-2">
+      <button class="btn" type="submit">Turn the coach on</button>
+    </form>
+    {% if reports %}
+    <form method="post" action="/coach/reports/remove" class="mt-2 border-t border-base-200 pt-4">
+      <p class="mb-2 text-sm opacity-70">Reports written before you turned the coach off are still stored.</p>
+      <button class="btn btn-error btn-outline btn-sm" type="submit">Remove all reports</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% else %}
+
+{# Asked for again while a report is underway, and replaced as a whole. #}
+<div id="report" {% if underway %}hx-get="{{ request.url.path }}" hx-trigger="every 4s" hx-select="#report" hx-target="this" hx-swap="outerHTML"{% endif %}>
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      {% if shown is none %}
+      <p class="opacity-70">No report yet.</p>
+      {% elif shown.status.value == "pending" %}
+      <p role="status"><span class="loading loading-spinner loading-sm mr-2 align-middle"></span>
+         Claude is writing your report. This takes a minute or two; the page shows it when it is there.</p>
+      {% elif shown.status.value == "failed" %}
+      <p class="alert alert-error alert-soft" role="alert">{{ shown.error }}</p>
+      <p class="text-sm opacity-70">Asked for on {{ shown.created_at.strftime("%Y-%m-%d at %H:%M") }} UTC.</p>
+      {% else %}
+      {% set report = shown.content %}
+      <p class="text-sm opacity-70">Written on {{ shown.created_at.strftime("%Y-%m-%d at %H:%M") }} UTC</p>
+      <p class="text-lg whitespace-pre-line">{{ report.summary }}</p>
+      {% for title, text in [("Recovery", report.recovery), ("Training", report.training), ("Goals", report.goals)] %}
+      <h2 class="card-title mt-2">{{ title }}</h2>
+      <p class="whitespace-pre-line">{{ text }}</p>
+      {% endfor %}
+      <h2 class="card-title mt-2">The coming week</h2>
+      <ul class="divide-y divide-base-200">
+        {% for day in report.week %}
+        <li class="py-2">
+          <p><span class="font-medium">{{ day.day }}</span>: {{ day.session }}</p>
+          <p class="text-sm opacity-70">{{ day.reason }}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% if report.watch %}
+      <h2 class="card-title mt-2">Keep an eye on</h2>
+      <ul class="list-disc pl-6">
+        {% for item in report.watch %}<li>{{ item }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      <p class="mt-2 text-sm opacity-70">Written by an AI model from what your watch measured. It can be
+         wrong and it is no medical advice.{% if shown.model %} Model: {{ shown.model }}.{% endif %}</p>
+      {% endif %}
+
+      <form method="post" action="/coach/report" class="card-actions mt-2 items-center">
+        <button class="btn btn-primary" type="submit" {{ "disabled" if underway or not can_ask or left == 0 }}>Write a new report</button>
+        {% if not can_ask %}
+        <span class="text-sm opacity-70">This instance has no API key. Enter your own below.</span>
+        {% elif left is not none %}
+        <span class="text-sm opacity-70">{{ left }} of {{ per_day }} left in these 24 hours.</span>
+        {% endif %}
+      </form>
+    </div>
+  </section>
+</div>
+
+{% if reports|length > 1 %}
+<section class="card mt-6 bg-base-100 shadow-sm">
+  <div class="card-body p-4">
+    <h2 class="card-title">Earlier reports</h2>
+    <ul class="divide-y divide-base-200">
+      {% for report in reports %}
+      <li class="py-2">
+        <a class="link link-hover {{ 'font-medium' if shown and report.id == shown.id }}" href="/coach/reports/{{ report.id }}">
+          {{ report.created_at.strftime("%Y-%m-%d at %H:%M") }} UTC</a>
+        {% if report.status.value == "failed" %}<span class="badge badge-error badge-sm">Failed</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endif %}
+
+<section class="card mt-6 max-w-md bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Your own API key</h2>
+    {% if has_key %}
+    <p>Reports are written with your own Anthropic API key, on your account and without a limit per day.</p>
+    <form method="post" action="/coach/key/remove">
+      <button class="btn btn-outline btn-sm" type="submit">Remove my key</button>
+    </form>
+    {% else %}
+    <p class="opacity-70">With a key of your own, reports are paid from your Anthropic account
+       and have no limit per day. It is stored encrypted and never shown again.</p>
+    {% endif %}
+    <form method="post" action="/coach/key" class="flex flex-col gap-1">
+      <label class="label" for="api_key">{{ "Another key" if has_key else "Anthropic API key" }}</label>
+      <input class="input w-full" id="api_key" name="api_key" type="password" autocomplete="off" required>
+      <button class="btn btn-sm mt-2 self-start" type="submit">Save key</button>
+    </form>
+  </div>
+</section>
+
+<section class="card mt-6 max-w-md bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Turn off</h2>
+    <p class="opacity-70">Turned off, nothing of yours goes to Anthropic. Reports stay here until you remove them.</p>
+    <div class="flex flex-wrap gap-2">
+      <form method="post" action="/coach/disable">
+        <button class="btn btn-outline btn-sm" type="submit">Turn the coach off</button>
+      </form>
+      {% if reports %}
+      <form method="post" action="/coach/reports/remove">
+        <button class="btn btn-error btn-outline btn-sm" type="submit">Remove all reports</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

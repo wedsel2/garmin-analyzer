@@ -555,3 +555,49 @@ class WeeklyGoal(Base):
     # Hours, kilometres or a number of activities, as the measure says.
     target: Mapped[float]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CoachSettings(Base):
+    """Whether a user lets the coach read their data, and their own key. See ADR 21."""
+
+    __tablename__ = "coach_settings"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    # When the user agreed to their data going to Anthropic; nothing is sent without.
+    enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The user's own Anthropic API key, encrypted with TOKEN_ENCRYPTION_KEY.
+    # Never plaintext.
+    encrypted_api_key: Mapped[bytes | None] = mapped_column(LargeBinary)
+
+
+class ReportStatus(enum.Enum):
+    PENDING = "pending"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class CoachReport(Base):
+    """A report the coach wrote for a user, or one that is being written. See ADR 21."""
+
+    __tablename__ = "coach_reports"
+    __table_args__ = (Index("ix_coach_reports_user_id_created_at", "user_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    status: Mapped[ReportStatus] = mapped_column(
+        Enum(ReportStatus, name="report_status", values_callable=lambda e: [m.value for m in e]),
+        default=ReportStatus.PENDING,
+    )
+    # Whether the user's own key paid for it; such a report does not count
+    # towards what the key of the instance allows per day.
+    own_key: Mapped[bool] = mapped_column(default=False)
+    # What Claude answered, in the shape of claude.Report.
+    content: Mapped[Any | None] = mapped_column(JSONB)
+    # A sentence for the page when the report could not be written.
+    error: Mapped[str | None] = mapped_column(Text)
+    model: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int | None]
+    output_tokens: Mapped[int | None]

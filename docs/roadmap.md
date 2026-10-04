@@ -13,7 +13,7 @@ intentionally less detailed.
 | 5 | Dashboards | Overview plus pages per metric family, date range selection | Done |
 | 6 | Publish | Tunnel hostname, Cloudflare Access, installable on Android, [self-hosting guide](self-hosting.md) | Done, published on 2026-10-04 |
 | 7 | Goals | Events to train for and weekly goals per user, on their own page and on the overview | Done |
-| 8 | AI analysis | Claude-based analysis and training recommendations | |
+| 8 | AI analysis | A coach: reports that Claude writes on request from a user's figures and goals, opt-in per user, and the same as a text to take to a chat ([ADR 21](adr/0021-coach-reports-by-claude-opt-in.md)) | Done |
 
 ## Phase 2 and 3 outcome
 
@@ -41,6 +41,12 @@ and the first live collection.
    on Android installed the site through Access without a bypass.
 
 ## Deferred on purpose
+
+- **A report every week without asking**, written by the worker for users who
+  want it, and **a connector through which Claude reads the figures itself**
+  from a chat on claude.ai, so that a membership is enough and nothing is pasted. Left out of phase 8 by choice; see
+  [ADR 21](adr/0021-coach-reports-by-claude-opt-in.md).
+- **The coach's summary on the overview.**
 
 - **A goal on a collected metric**, such as VO2 max or resting heart rate by a
   date. Left out of phase 7 by choice; see
