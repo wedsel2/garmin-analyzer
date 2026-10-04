@@ -1,10 +1,9 @@
 # Architecture
 
 Target design. What exists today is the pipeline, the database schema, the
-collector run from the command line (`user-add`, `link` and `collect`), and the
-start of the web interface: `serve`, setting up the first account, signing in,
-inviting and managing users, linking Garmin, and the base layout and styling.
-Dashboards and the scheduled worker are next. See the [roadmap](roadmap.md) for
+collector, the scheduled worker, and the foundation of the web interface:
+setting up the first account, signing in, inviting and managing users, linking
+Garmin, and the base layout and styling. Dashboards are next. See the [roadmap](roadmap.md) for
 the order of work and the [decision records](adr/README.md) for the reasoning.
 
 ## Goal
@@ -144,8 +143,12 @@ so a sync that is killed does not lose them. A PostgreSQL advisory lock allows
 one sync per user at a time; a second one is skipped. A failure for one user
 does not stop the sync of the others.
 
-A scheduled worker that runs this for every linked user comes with the web
-foundation; until then `collect` is run by hand or by cron.
+The `worker` service does this without anyone asking. Once a minute it looks
+for users with an active link whose last completed sync is more than an hour
+ago (`SYNC_INTERVAL_MINUTES`) and syncs them in turn, whoever was never synced
+first. A user whose sync failed is tried again an interval later. `collect`
+stays for syncing by hand and for history: `collect --since` fetches what lies
+before the catch-up. See [ADR 17](adr/0017-worker-as-a-polling-loop.md).
 
 ## Data
 
@@ -172,6 +175,7 @@ ox, endurance score, hill score, and lactate threshold heart rate and speed.
   Garmin marks unmeasured points with negative numbers; parsers drop them.
 
 Schema changes are Alembic migrations, applied on start-up of the `web` service.
+The worker starts once `web` is healthy and refuses to run on an older schema.
 
 ## Deployment
 

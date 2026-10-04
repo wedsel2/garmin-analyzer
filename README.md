@@ -2,26 +2,27 @@
 
 Collects Garmin metrics into PostgreSQL so they can be visualised and analysed.
 
-> Status: the collector runs from the command line. The web interface lets you
-> create the first account, sign in, invite others and link Garmin; a scheduled
-> worker and dashboards come next.
+> Status: accounts, invites, linking Garmin and automatic collection work.
+> Dashboards come next, so there is nothing to look at yet but the state of
+> your link.
 
 ## Run
 
 ```bash
 cp .env.example .env                                  # set POSTGRES_PASSWORD
 docker compose run --rm web generate-key              # put the result in .env as TOKEN_ENCRYPTION_KEY
-docker compose up --detach                            # applies migrations, serves http://localhost:8000
+docker compose up --detach                            # applies migrations, serves http://localhost:8000, starts the worker
 ```
 
 Open <http://localhost:8000> and create the administrator account. Do this
 before making the instance reachable by others: whoever opens a fresh instance
 first becomes its administrator. Choose **Link Garmin** on the overview: you
 sign in at Garmin in your own browser and paste the resulting address back.
-Then collect, from the command line until the scheduled worker exists:
+The worker picks up a new link within a minute, fetches the last two weeks,
+and from then on syncs every linked user once an hour. To fetch older history:
 
 ```bash
-docker compose run --rm web collect --days 7
+docker compose run --rm web collect you@example.com --since 2024-01-01
 ```
 
 Invite others from the Users page: it shows a link to pass on, with which they
@@ -33,8 +34,8 @@ you have lost your own.
 After updating the image, `docker compose up --detach` applies new migrations.
 The other commands refuse to run until that, or `migrate`, has been done.
 
-`collect` without an email syncs every linked user. Run it again at any time: it
-fetches the last two days anew and only what is still missing before that. Once
+`collect` without an email syncs every linked user, as the worker does. Run it
+at any time: it fetches the last two days anew and only what is still missing before that. Once
 a week it also fetches the last two weeks again, so days your watch uploaded
 late are not missed. Use `--since 2024-01-01` to fill in history; it can be
 interrupted and resumed.

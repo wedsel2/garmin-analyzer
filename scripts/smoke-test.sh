@@ -66,6 +66,10 @@ css = r.urlopen("http://127.0.0.1:8000/static/app.css", timeout=5).read()
 assert b".btn" in css and b".navbar" in css, "stylesheet is not the compiled one"
 '
 
+echo "--- worker starts and stays up with nobody to sync"
+docker compose up --detach --wait worker
+docker compose logs worker | grep -q "worker started"
+
 echo "--- healthcheck fails with the database down"
 docker compose stop db
 expect_unhealthy "database error" --no-deps
