@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{{ activity.name or sport }}{% endblock %}
+{% block scripts %}{% include "_chart_scripts.html" %}{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <a class="link link-hover text-sm opacity-70" href="/activities">All activities</a>
+  <h1 class="text-2xl font-semibold">{{ activity.name or sport }}</h1>
+  <p class="text-sm opacity-70">
+    {{ sport }} ·
+    <time datetime="{{ activity.start_at.isoformat() }}" data-local>
+      {{- activity.start_at.strftime("%Y-%m-%d %H:%M") }} UTC</time>
+    {% if activity.location_name %} · {{ activity.location_name }}{% endif %}
+  </p>
+</div>
+
+{% if figures %}
+<dl class="mb-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
+  {% for name, text in figures %}
+  <div>
+    <dt class="text-sm opacity-70">{{ name }}</dt>
+    <dd class="font-semibold">{{ text }}</dd>
+  </div>
+  {% endfor %}
+</dl>
+{% endif %}
+
+<div class="grid gap-4">
+  {% if samples_src %}
+  {# A card whose chart has nothing to show is taken away by the chart script. #}
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-1 p-4">
+      <h2 class="card-title text-base">Route</h2>
+      <div class="h-72" role="img" aria-label="The route as a line, without a map"
+           data-chart="route" data-src="{{ samples_src }}" data-hide-card></div>
+      <p class="text-sm opacity-70">The filled dot is the start, the open one the finish. North is up.</p>
+    </div>
+  </section>
+  {% for key, title, unit in charts %}
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-1 p-4">
+      <h2 class="card-title text-base">
+        {{ title }} <span class="text-sm font-normal opacity-70">{{ unit }}</span>
+      </h2>
+      <div class="h-36" role="img" aria-label="{{ title }} through the activity"
+           data-chart="samples" data-group="activity" data-src="{{ samples_src }}"
+           data-metrics="{{ key }}" data-unit="{{ unit }}" data-hide-card
+           {% if key == "speed" and paced %}data-pace{% endif %}></div>
+    </div>
+  </section>
+  {% endfor %}
+  {% else %}
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body p-4">
+      <p class="py-4 text-center text-sm opacity-70">Nothing was recorded through this activity.</p>
+    </div>
+  </section>
+  {% endif %}
+
+  {% for name, (unit, times) in zones.items() %}
+  {% if times %}
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-2 p-4">
+      <h2 class="card-title text-base">Time in {{ name|lower }} zones</h2>
+      <dl class="grid gap-2">
+        {% for zone in times %}
+        <div class="grid grid-cols-[9rem_1fr_7rem] items-center gap-2 text-sm">
+          <dt>
+            Zone {{ zone.number }}
+            {% if zone.low_boundary is not none %}<span class="opacity-70">from {{ zone.low_boundary }} {{ unit }}</span>{% endif %}
+          </dt>
+          <dd><progress class="progress progress-primary w-full" value="{{ zone.share }}" max="100" aria-label="Zone {{ zone.number }}"></progress></dd>
+          <dd class="text-right tabular-nums">{{ zone.seconds|duration }} · {{ zone.share }}%</dd>
+        </div>
+        {% endfor %}
+      </dl>
+    </div>
+  </section>
+  {% endif %}
+  {% endfor %}
+
+  {% if laps %}
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body p-4">
+      <h2 class="card-title text-base">Laps</h2>
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Lap</th>
+              <th class="text-right">Distance</th>
+              <th class="text-right">Time</th>
+              <th class="text-right">{{ "Pace" if paced else "Speed" }}</th>
+              <th class="text-right">Average heart rate</th>
+              {% if laps|selectattr("power")|list %}<th class="text-right">Average power</th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for lap in laps %}
+            <tr>
+              <td>{{ lap.number }}</td>
+              <td class="text-right tabular-nums">{{ lap.distance }}</td>
+              <td class="text-right tabular-nums">{{ lap.time }}</td>
+              <td class="text-right tabular-nums">{{ lap.tempo }}</td>
+              <td class="text-right tabular-nums">{{ lap.heart_rate }}</td>
+              {% if laps|selectattr("power")|list %}<td class="text-right tabular-nums">{{ lap.power }}</td>{% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

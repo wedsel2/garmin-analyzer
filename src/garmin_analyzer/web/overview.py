@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
+from garmin_analyzer.activities import whole_activities
 from garmin_analyzer.metrics import DAILY_METRICS, DailyMetric, daily_series
 from garmin_analyzer.models import (
     Activity,
@@ -126,7 +127,7 @@ def recent_activities(db: Session, user_id: uuid.UUID) -> list[Activity]:
     return list(
         db.scalars(
             select(Activity)
-            .where(Activity.user_id == user_id)
+            .where(whole_activities(user_id))
             .order_by(Activity.start_at.desc())
             .limit(RECENT_ACTIVITIES)
         )

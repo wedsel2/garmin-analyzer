@@ -105,7 +105,16 @@ the last year colours each day by its minutes of activities.
 counts on the day it began in UTC, and the legs of a multi-sport activity
 count instead of the whole.
 
-Activities follow.
+**Activities** is a list, newest first, that can be narrowed to one sport and
+is paged, and a page per activity: its figures, the route, heart rate, speed,
+elevation, power and cadence against the time since the start, time in heart
+rate and power zones, and the laps. The series and the route are read from the
+stored details response when the page asks for them
+(`/api/v1/activities/{id}/samples`, see ADR 12), averaged down to at most 600
+values and 1000 positions. The route is drawn as a line on an empty
+background, on one scale in both directions: there is no map under it, as its
+tiles would come from a third party. A chart of something that was not
+recorded is left out. An activity of someone else does not exist for a user.
 
 ## Users and access
 

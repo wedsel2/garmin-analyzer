@@ -538,6 +538,132 @@
     };
   };
 
+  const spanFormat = (seconds) => {
+    const whole = Math.round(seconds);
+    const minutes = String(Math.floor((whole % 3600) / 60)).padStart(2, "0");
+    return `${Math.floor(whole / 3600)}:${minutes}:${String(whole % 60).padStart(2, "0")}`;
+  };
+
+  // One series of an activity against the time since its start. Null when it
+  // was not recorded.
+  builders.samples = (element, data, colour) => {
+    const values = data.series[element.dataset.metrics];
+    if (!values) return null;
+    const unit = element.dataset.unit;
+    // Time per kilometre next to the speed, for sports that think in pace.
+    const pace = (speed) => {
+      if (!("pace" in element.dataset) || !speed) return [];
+      const seconds = Math.round(3600 / speed);
+      return [`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} /km`];
+    };
+    return {
+      animation: false,
+      // Fixed margins, so the moments of the charts below each other line up.
+      grid: { left: 40, right: 16, top: 8, bottom: 24 },
+      xAxis: {
+        type: "value",
+        min: 0,
+        max: data.seconds.at(-1),
+        axisLine: { lineStyle: { color: colour.grid } },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { color: colour.label, hideOverlap: true, formatter: spanFormat },
+      },
+      yAxis: {
+        type: "value",
+        scale: true,
+        splitNumber: 3,
+        axisLabel: { color: colour.label },
+        splitLine: { lineStyle: { color: colour.grid } },
+      },
+      tooltip: {
+        trigger: "axis",
+        confine: true,
+        padding: [4, 8],
+        backgroundColor: colour.tip,
+        borderColor: colour.guide,
+        textStyle: { color: colour.text, fontSize: 12 },
+        axisPointer: { lineStyle: { color: colour.guide } },
+        formatter: ([point]) =>
+          point
+            ? tip([
+                `${spanFormat(point.value[0])}: ${amount(point.value[1], unit)}`,
+                ...pace(point.value[1]),
+              ])
+            : "",
+      },
+      series: [
+        {
+          type: "line",
+          data: data.seconds.map((second, index) => [second, values[index]]),
+          symbol: "circle",
+          symbolSize: 2,
+          showAllSymbol: true,
+          lineStyle: { width: 2, color: colour.accent },
+          itemStyle: { color: colour.accent },
+          areaStyle:
+            element.dataset.metrics === "elevation" ? { color: colour.accent, opacity: 0.12 } : null,
+        },
+      ],
+    };
+  };
+
+  // The route of an activity as a line without a map: east to the right and
+  // north up, on the same scale in both directions. Null without positions.
+  builders.route = (element, data, colour) => {
+    if (data.route.length < 2) return null;
+    const middle = data.route.reduce((sum, [, lat]) => sum + lat, 0) / data.route.length;
+    // A degree of longitude is shorter than one of latitude away from the equator.
+    const squeeze = Math.cos((middle * Math.PI) / 180);
+    const points = data.route.map(([lon, lat]) => [lon * squeeze, lat]);
+    const extent = (at) => {
+      const values = points.map((point) => point[at]);
+      return [Math.min(...values), Math.max(...values)];
+    };
+    const margin = 16;
+    const width = Math.max(1, element.clientWidth - 2 * margin);
+    const height = Math.max(1, element.clientHeight - 2 * margin);
+    const [west, east] = extent(0);
+    const [south, north] = extent(1);
+    // Widen the direction that has room to spare, so both keep one scale.
+    const perPixel = Math.max((east - west) / width, (north - south) / height) || 1e-6;
+    const centre = [(west + east) / 2, (south + north) / 2];
+    const axis = (at, pixels) => ({
+      type: "value",
+      show: false,
+      min: centre[at] - (perPixel * pixels) / 2,
+      max: centre[at] + (perPixel * pixels) / 2,
+    });
+    const dot = (point, filled) => ({
+      type: "scatter",
+      data: [point],
+      symbolSize: 10,
+      silent: true,
+      itemStyle: {
+        color: filled ? colour.accent : colour.surface,
+        borderColor: colour.accent,
+        borderWidth: 2,
+      },
+    });
+    return {
+      animation: false,
+      grid: { left: margin, right: margin, top: margin, bottom: margin },
+      xAxis: axis(0, width),
+      yAxis: axis(1, height),
+      series: [
+        {
+          type: "line",
+          data: points,
+          symbol: "none",
+          silent: true,
+          lineStyle: { width: 2, color: colour.accent, join: "round" },
+        },
+        dot(points.at(-1), false),
+        dot(points[0], true),
+      ],
+    };
+  };
+
   // Where an element gets its values. For a day, the hours that belong to it
   // are those between two midnights in the zone of this device.
   const source = (element) => {
@@ -550,18 +676,23 @@
   };
 
   const charts = new Map();
+  // What each element was last drawn from.
+  const drawn = new WeakMap();
 
   async function draw(element) {
     const data = await load(source(element));
     if (!element.isConnected) return;
     const option = builders[element.dataset.chart](element, data, colours());
-    // Without values the text marked data-empty after the element takes its place.
+    // Without values the text marked data-empty after the element takes its
+    // place, or the card around it goes when the element says data-hide-card.
     const empty = element.nextElementSibling;
     element.hidden = !option;
     if (empty?.matches("[data-empty]")) empty.hidden = Boolean(option);
+    if ("hideCard" in element.dataset) element.closest("section").hidden = !option;
     if (!option) return;
     const chart = charts.get(element) ?? echarts.init(element);
     charts.set(element, chart);
+    drawn.set(element, data);
     chart.setOption(option, true);
     chart.resize();
     if (element.dataset.group) {
@@ -581,7 +712,11 @@
       }
     }
     for (const element of document.querySelectorAll("[data-chart]")) {
-      draw(element).catch((error) => console.error(error));
+      draw(element).catch((error) => {
+        console.error(error);
+        // A card that exists only for its chart goes when there is nothing to draw.
+        if ("hideCard" in element.dataset) element.closest("section").hidden = true;
+      });
     }
   }
 
@@ -592,7 +727,15 @@
   if (window.echarts) {
     drawAll();
     dark.addEventListener("change", drawAll);
-    addEventListener("resize", () => charts.forEach((chart) => chart.resize()));
+    addEventListener("resize", () => {
+      for (const [element, chart] of charts) {
+        chart.resize();
+        // The scale of a route depends on the room it has.
+        if (element.dataset.chart === "route") {
+          chart.setOption(builders.route(element, drawn.get(element), colours()), true);
+        }
+      }
+    });
     // HTMX has put another period on the page.
     document.addEventListener("htmx:afterSettle", drawAll);
   }
