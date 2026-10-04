@@ -11,7 +11,7 @@ intentionally less detailed.
 | 3 | Storage and collector | Schema and migrations, raw and normalised layers, synthetic fixtures per metric family, token encryption, and `user-add`, `link` and `collect` from the command line | Done, first live run on 2026-10-03 |
 | 4 | Web foundation | `serve`, accounts, invites, Garmin link flow, base layout and styling, and a scheduled worker that runs `collect` | Done |
 | 5 | Dashboards | Overview plus pages per metric family, date range selection | Done |
-| 6 | Publish | Tunnel hostname, Cloudflare Access, installable on Android, [self-hosting guide](self-hosting.md) | Built; the owner's instance is still to be published |
+| 6 | Publish | Tunnel hostname, Cloudflare Access, installable on Android, [self-hosting guide](self-hosting.md) | Done, published on 2026-10-04 |
 | 7 | Goals | Goal management per user | |
 | 8 | AI analysis | Claude-based analysis and training recommendations | |
 
@@ -36,7 +36,9 @@ and the first live collection.
    trusted. Done.
 3. Self-hosting guide. Done.
 4. The owner's instance: hostname on the tunnel, Access, and installing on a
-   phone. Installing has only been tried in a desktop browser so far.
+   phone. Done on 2026-10-04: the tunnel runs in the Cloudflared add-on of Home
+   Assistant on another machine, whose address is the one to trust, and Chrome
+   on Android installed the site through Access without a bypass.
 
 ## Deferred on purpose
 
