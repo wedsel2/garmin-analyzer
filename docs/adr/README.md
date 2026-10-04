@@ -23,6 +23,8 @@ the old one.
 | [15](0015-sessions-forms-and-sign-in-limits.md) | Sessions as hashed random tokens, forms protected by fetch metadata, sign-in limited in memory | Accepted |
 | [16](0016-invites-and-resets-as-password-links.md) | An invite is an account without a password plus a single-use password link | Accepted |
 | [17](0017-worker-as-a-polling-loop.md) | The worker is one process that polls the database for users due a sync | Accepted |
+| [18](0018-series-api-for-charts.md) | Charts read a versioned JSON API that returns series as columns | Accepted |
+| [19](0019-chart-library-fetched-in-the-image-build.md) | The chart library is fetched in the image build, not committed | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.

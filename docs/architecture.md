@@ -3,7 +3,7 @@
 Target design. What exists today is the pipeline, the database schema, the
 collector, the scheduled worker, and the foundation of the web interface:
 setting up the first account, signing in, inviting and managing users, linking
-Garmin, and the base layout and styling. Dashboards are next. See the [roadmap](roadmap.md) for
+Garmin, the base layout and styling, and the first dashboard, the overview. See the [roadmap](roadmap.md) for
 the order of work and the [decision records](adr/README.md) for the reasoning.
 
 ## Goal
@@ -53,8 +53,23 @@ standalone Tailwind binary during the image build. See [ADR 7](adr/0007-web-app-
 
 The build stage fetches the Tailwind binary and the DaisyUI plugin from their
 GitHub releases at a pinned version and checksum, and compiles `styles/app.css`
-against the templates. Neither file is in the repository. The pages follow the
-light or dark setting of the device.
+against the templates. It fetches ECharts the same way. None of these files is
+in the repository ([ADR 19](adr/0019-chart-library-fetched-in-the-image-build.md)).
+The pages follow the light or dark setting of the device.
+
+### Dashboards
+
+A page renders its numbers on the server and marks where a chart goes with
+`data-chart` and the API address to read. `static/charts.js` draws every such
+element with ECharts and asks each address once. The API lives under `/api/v1`,
+uses the session cookie, and returns daily metrics as columns: a list of dates
+and a list of values per metric, `null` where a day has none. The metrics are
+listed in `metrics.py`. See [ADR 18](adr/0018-series-api-for-charts.md).
+
+So far there is the **overview**: per main metric the latest value, Garmin's
+word for it, how it compares with the average of the 4 weeks before, and a
+trend line of those weeks; below that the most recent activities. Pages per
+metric family, the day view and activities follow.
 
 ## Users and access
 

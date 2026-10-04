@@ -4,6 +4,7 @@ See ADR 8 for accounts and ADR 15 for how sessions and forms are protected.
 """
 
 from contextlib import suppress
+from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -29,7 +30,7 @@ from garmin_analyzer.ratelimit import FailureLimiter
 from garmin_analyzer.sessions import end_session
 from garmin_analyzer.tokens import TokenCipher
 from garmin_analyzer.users import UserError, add_user, normalise_email, set_password
-from garmin_analyzer.web import accounts, garmin_link
+from garmin_analyzer.web import accounts, api, garmin_link, overview
 from garmin_analyzer.web.shared import (
     COOKIE,
     HERE,
@@ -109,7 +110,22 @@ def healthz(db: Db) -> PlainTextResponse:
 @router.get("/")
 def home(request: Request, db: Db, user: CurrentUser) -> Response:
     link = db.get(GarminLink, user.id)
-    return templates.TemplateResponse(request, "home.html", {"user": user, "link": link})
+    # The day by the server's clock, as the collector has it.
+    today = datetime.now(UTC).date()
+    return templates.TemplateResponse(
+        request,
+        "home.html",
+        {
+            "user": user,
+            "link": link,
+            "today": today,
+            "tiles": overview.tiles(db, user.id, today),
+            "day_label": overview.day_label,
+            "phrase": overview.phrase,
+            "series_url": overview.series_url(today),
+            "activities": overview.recent_activities(db, user.id),
+        },
+    )
 
 
 def setup_page(request: Request, email: str = "", error: str | None = None) -> Response:
@@ -215,8 +231,14 @@ def to_sign_in(request: Request, error: Exception) -> Response:
 
 
 def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
-    # No JSON API yet, so nothing to document.
-    app = FastAPI(title="Garmin Analyzer", docs_url=None, redoc_url=None, openapi_url=None)
+    # The description of the JSON API is served; the pages that render it are not,
+    # as they load scripts from elsewhere.
+    app = FastAPI(
+        title="Garmin Analyzer",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url="/api/v1/openapi.json",
+    )
     app.state.sessions = make_session_factory(engine)
     app.state.cipher = cipher
     app.state.link_attempts = FailureLimiter(
@@ -231,7 +253,8 @@ def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
     app.add_middleware(GZipMiddleware)
     app.add_exception_handler(SignInRequired, to_sign_in)
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
-    app.include_router(router)
-    app.include_router(accounts.router)
-    app.include_router(garmin_link.router)
+    app.include_router(router, include_in_schema=False)
+    app.include_router(accounts.router, include_in_schema=False)
+    app.include_router(garmin_link.router, include_in_schema=False)
+    app.include_router(api.router)
     return app
