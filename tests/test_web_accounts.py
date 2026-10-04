@@ -120,9 +120,8 @@ def test_the_invited_person_chooses_a_password_and_is_signed_in(
     response = anonymous.post(path, data={"password": PASSWORD, "password_again": PASSWORD})
 
     assert (response.status_code, response.headers["location"]) == (303, "/")
-    home = anonymous.get("/")
-    assert FRIEND in home.text
-    assert 'href="/users"' not in home.text
+    assert f'value="{FRIEND}"' in anonymous.get("/account").text
+    assert 'href="/users"' not in anonymous.get("/").text
     with Session(db) as session:
         friend = session.scalars(select(User).where(User.email == FRIEND)).one()
         assert verify_password(friend.password_hash, PASSWORD)
@@ -346,10 +345,125 @@ def test_guesses_at_the_current_password_are_limited(admin: TestClient, db: Engi
         assert verify_password(session.scalars(select(User.password_hash)).one(), PASSWORD)
 
 
+def stored_profile(db: Engine) -> tuple[str, str | None]:
+    with Session(db) as session:
+        user = session.scalars(select(User)).one()
+        return user.email, user.name
+
+
+def test_the_top_bar_names_the_account_page_not_the_user(admin: TestClient) -> None:
+    assert ADMIN not in admin.get("/").text
+    assert f'value="{ADMIN}"' in admin.get("/account").text
+
+
+def test_a_user_sets_their_name_without_their_password(admin: TestClient, db: Engine) -> None:
+    response = admin.post("/account/profile", data={"name": "  Ada Lovelace ", "email": ADMIN})
+
+    assert (response.status_code, response.headers["location"]) == (303, "/account?saved=1")
+    assert stored_profile(db) == (ADMIN, "Ada Lovelace")
+    page = admin.get("/account?saved=1").text
+    assert "Saved." in page
+    assert 'value="Ada Lovelace"' in page
+    assert "Ada Lovelace" in admin.get("/users").text
+
+    admin.post("/account/profile", data={"name": " ", "email": ADMIN})
+
+    assert stored_profile(db) == (ADMIN, None)
+
+
+def test_a_user_changes_their_email_address_and_signs_in_with_it(
+    admin: TestClient, db: Engine
+) -> None:
+    response = admin.post(
+        "/account/profile",
+        data={"name": "Ada", "email": " New@Example.com ", "current_password": PASSWORD},
+    )
+
+    assert response.status_code == 303
+    assert stored_profile(db) == ("new@example.com", "Ada")
+    assert admin.get("/").status_code == 200
+    with make_client(db) as elsewhere:
+        sign_in = {"email": "new@example.com", "password": PASSWORD}
+        assert elsewhere.post("/login", data=sign_in).status_code == 303
+        assert (
+            elsewhere.post("/login", data={"email": ADMIN, "password": PASSWORD}).status_code == 401
+        )
+
+
+@pytest.mark.parametrize(
+    ("email", "password", "message"),
+    [
+        ("new@example.com", "", "The current password is not right."),
+        ("new@example.com", "not the password!", "The current password is not right."),
+        ("no address", PASSWORD, "is not an email address."),
+        (FRIEND, PASSWORD, f"A user with email {FRIEND} already exists."),
+    ],
+)
+def test_a_refused_profile_change_changes_nothing_and_keeps_what_was_entered(
+    admin: TestClient, db: Engine, email: str, password: str, message: str
+) -> None:
+    invite(admin)
+
+    response = admin.post(
+        "/account/profile", data={"name": "Ada", "email": email, "current_password": password}
+    )
+
+    assert response.status_code == 400
+    assert message in response.text
+    assert f'value="{email}"' in response.text
+    assert 'value="Ada"' in response.text
+    with Session(db) as session:
+        admin_user = session.scalars(select(User).where(User.is_admin)).one()
+        assert (admin_user.email, admin_user.name) == (ADMIN, None)
+
+
+def test_guesses_at_the_password_through_the_profile_form_are_limited(
+    admin: TestClient, db: Engine
+) -> None:
+    data = {"email": "new@example.com", "current_password": "not the password!"}
+    for _ in range(FAILED_SIGN_INS_PER_EMAIL):
+        assert admin.post("/account/profile", data=data).status_code == 400
+
+    response = admin.post("/account/profile", data={**data, "current_password": PASSWORD})
+
+    assert response.status_code == 429
+    assert "Too many failed attempts" in response.text
+    assert stored_profile(db) == (ADMIN, None)
+
+
+def test_the_profile_form_cannot_be_posted_from_another_site(admin: TestClient, db: Engine) -> None:
+    response = admin.post(
+        "/account/profile",
+        data={"name": "Mallory", "email": ADMIN},
+        headers={"Sec-Fetch-Site": "cross-site"},
+    )
+
+    assert response.status_code == 403
+    assert stored_profile(db) == (ADMIN, None)
+
+
 def test_the_account_page_needs_a_signed_in_user(anonymous: TestClient) -> None:
     assert anonymous.get("/account").headers["location"] == "/login"
+    response = anonymous.post("/account/profile", data={"name": "x", "email": "x@example.com"})
+    assert response.headers["location"] == "/login"
     response = anonymous.post(
         "/account/password",
         data={"current_password": "x", "password": "y", "password_again": "y"},
     )
     assert response.headers["location"] == "/login"
+
+
+def test_an_address_taken_while_the_profile_is_saved_is_refused(
+    admin: TestClient, db: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    invite(admin)
+    monkeypatch.setattr("garmin_analyzer.users.check_new_email", lambda session, email: None)
+
+    response = admin.post(
+        "/account/profile", data={"name": "Ada", "email": FRIEND, "current_password": PASSWORD}
+    )
+
+    assert response.status_code == 400
+    assert f"A user with email {FRIEND} already exists." in response.text
+    assert emails(db) == [ADMIN, FRIEND]
+    assert admin.get("/account?saved=anything").status_code == 200
