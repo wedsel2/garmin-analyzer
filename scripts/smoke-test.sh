@@ -57,13 +57,15 @@ docker compose run --rm web user-add smoke@example.com
 TOKEN_ENCRYPTION_KEY="$(docker run --rm "$APP_IMAGE" generate-key)"
 export TOKEN_ENCRYPTION_KEY
 
-echo "--- web interface starts and serves the sign-in page and the compiled stylesheet"
+echo "--- web interface starts and serves the sign-in page, the compiled stylesheet and the chart scripts"
 docker compose up --detach --wait web
 docker compose exec -T web python -c '
 import urllib.request as r
 assert b"Sign in" in r.urlopen("http://127.0.0.1:8000/login", timeout=5).read()
 css = r.urlopen("http://127.0.0.1:8000/static/app.css", timeout=5).read()
 assert b".btn" in css and b".navbar" in css, "stylesheet is not the compiled one"
+for script in ("echarts.min.js", "charts.js"):
+    assert r.urlopen("http://127.0.0.1:8000/static/" + script, timeout=5).status == 200
 '
 
 echo "--- worker starts and stays up with nobody to sync"

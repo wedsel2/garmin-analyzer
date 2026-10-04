@@ -19,7 +19,7 @@ uv run ruff check . && uv run ruff format .
 uv run mypy
 uvx pre-commit run --all-files   # everything CI lint runs
 docker compose build && scripts/smoke-test.sh
-scripts/build-css.sh             # compiled stylesheet for a local serve; needs Docker
+scripts/build-static.sh          # stylesheet and chart library for a local serve; needs Docker
 ```
 
 Tests start a throwaway PostgreSQL through testcontainers, using the image from

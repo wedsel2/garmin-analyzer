@@ -1,6 +1,103 @@
 {% extends "base.html" %}
 {% block title %}Overview{% endblock %}
+{% block scripts %}
+<script src="/static/echarts.min.js" defer></script>
+<script src="/static/charts.js" defer></script>
+{% endblock %}
 {% block content %}
 <h1 class="mb-4 text-2xl font-semibold">Overview</h1>
-{% include "_garmin_status.html" %}
+{% set collecting = link is not none and link.status.value == "active" %}
+{% if not collecting %}
+<div class="mb-6">{% include "_garmin_status.html" %}</div>
+{% endif %}
+
+{% if link is not none %}
+<div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+  {% for tile in tiles %}
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-1 p-4">
+      <h2 class="text-sm opacity-70">{{ tile.metric.label }}</h2>
+      {% if tile.value is none %}
+      <p class="text-3xl font-semibold opacity-40">-</p>
+      <p class="text-sm opacity-70">No data in the last 4 weeks</p>
+      {% else %}
+      <p>
+        <span class="text-3xl font-semibold">{{ tile.value|number }}</span>
+        {% if tile.metric.unit %}<span class="text-sm opacity-70">{{ tile.metric.unit }}</span>{% endif %}
+      </p>
+      <p class="text-sm opacity-70">
+        {{ day_label(tile.day, today) }}{% if tile.note %} · {{ tile.note }}{% endif %}
+      </p>
+      <p class="text-sm">
+        {% if tile.delta is none %}
+        <span class="opacity-70">Too few days to compare</span>
+        {% elif tile.delta == 0 %}
+        <span class="opacity-70">At your 4-week average</span>
+        {% else %}
+        <span aria-hidden="true" class="{{ {'better': 'text-success', 'worse': 'text-error'}.get(tile.verdict, 'opacity-70') }}">
+          {{- "▲" if tile.delta > 0 else "▼" -}}
+        </span>
+        {{ tile.delta|abs|number }} {{ "above" if tile.delta > 0 else "below" }} your 4-week average
+        {% endif %}
+      </p>
+      {# mt-auto: the lines of a row of tiles sit level, however many lines of text are above. #}
+      <div class="mt-auto h-12" role="img"
+           aria-label="{{ tile.metric.label }} over the last 4 weeks"
+           data-chart="sparkline" data-src="{{ series_url }}" data-metric="{{ tile.key }}"
+           data-unit="{{ tile.metric.unit }}"
+           {% if tile.average is not none %}data-average="{{ tile.average|round(1) }}"{% endif %}></div>
+      {% endif %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+
+<section class="card mt-6 bg-base-100 shadow-sm">
+  <div class="card-body p-4">
+    <h2 class="card-title">Recent activities</h2>
+    {% if activities %}
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Activity</th>
+            <th class="text-right">Distance</th>
+            <th class="text-right">Time</th>
+            <th class="text-right">Average heart rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for activity in activities %}
+          <tr>
+            <td class="whitespace-nowrap">
+              <time datetime="{{ activity.start_at.isoformat() }}" data-local>
+                {{- activity.start_at.strftime("%Y-%m-%d %H:%M") }} UTC</time>
+            </td>
+            <td>
+              {{ activity.name or phrase(activity.type_key or "activity") }}
+              {% if activity.name and activity.type_key %}
+              <span class="opacity-70">· {{ phrase(activity.type_key) }}</span>
+              {% endif %}
+            </td>
+            <td class="text-right tabular-nums">{{ activity.distance_m|kilometres }}</td>
+            <td class="text-right tabular-nums">{{ activity.duration_s|duration }}</td>
+            <td class="text-right tabular-nums">
+              {% if activity.avg_hr is not none %}{{ activity.avg_hr|number }} bpm{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="opacity-70">No activities collected yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if collecting %}
+<div class="mt-6">{% include "_garmin_status.html" %}</div>
+{% endif %}
 {% endblock %}

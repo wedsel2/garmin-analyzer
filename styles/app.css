@@ -1,5 +1,5 @@
 /* Input for the stylesheet. The image build compiles it with the Tailwind CLI
-   into static/app.css; scripts/build-css.sh does the same for local use. */
+   into static/app.css; scripts/build-static.sh does the same for local use. */
 @import "tailwindcss";
 
 /* Fetched next to this file by the build, not part of the repository. */
