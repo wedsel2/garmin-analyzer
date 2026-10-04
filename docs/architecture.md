@@ -269,7 +269,7 @@ whose address is in `FORWARDED_ALLOW_IPS`; the host header is passed on as it
 is. From these follow the `Secure` mark on the session cookie, the address in
 links to set a password, and the address that failed sign-ins are counted for.
 When a request has forwarded headers from a proxy that is not in that list, the
-web service says so once in its log and names the address.
+web service names the address of that proxy in its log, once per address.
 
 ## Later
 

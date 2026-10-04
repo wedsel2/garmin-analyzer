@@ -16,7 +16,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from garmin_analyzer.tokens import TokenCipher, generate_key
 from garmin_analyzer.users import add_user, set_password
-from garmin_analyzer.web.app import FAILED_SIGN_INS_PER_ADDRESS, create_app
+from garmin_analyzer.web.app import FAILED_SIGN_INS_PER_ADDRESS, PROXY_WARNINGS, create_app
 from garmin_analyzer.web.shared import COOKIE
 
 ADMIN = "admin@example.com"
@@ -132,6 +132,34 @@ def test_a_trusted_proxy_and_a_direct_visitor_give_no_warning(
         untrusted.get("/login")
 
     assert caplog.messages == []
+
+
+def test_a_trusted_proxy_that_adds_a_header_of_its_own_gives_no_warning(
+    trusted: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The server reads the last X-Forwarded-For; the visitor may have sent one before it."""
+    lines = [("X-Forwarded-For", "198.51.100.1"), ("X-Forwarded-For", VISITOR)]
+
+    with caplog.at_level(logging.WARNING):
+        trusted.get("/login", headers=lines)
+        trusted.get("/login", headers={"X-Forwarded-For": ""})
+
+    assert caplog.messages == []
+
+
+def test_every_proxy_that_is_not_trusted_is_named_up_to_a_number(
+    db: Engine, caplog: pytest.LogCaptureFixture
+) -> None:
+    app = create_app(db, CIPHER)
+
+    with caplog.at_level(logging.WARNING):
+        for number in range(PROXY_WARNINGS + 2):
+            with TestClient(app, client=(f"10.0.0.{number}", 50000)) as client:
+                client.get("/login", headers=forwarded())
+
+    assert len(caplog.messages) == PROXY_WARNINGS
+    assert "a proxy at 10.0.0.0 " in caplog.messages[0]
+    assert "a proxy at 10.0.0.1 " in caplog.messages[1]
 
 
 def test_a_proxy_that_is_not_trusted_is_named_once_in_the_log(

@@ -64,6 +64,9 @@ SIGN_IN_PERIOD_SECONDS = 15 * 60
 # Any constant: makes two first-account requests at the same moment take turns.
 SETUP_LOCK = 4_815_162_342
 
+# How many proxies that are not trusted get a line in the log.
+PROXY_WARNINGS = 5
+
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
@@ -99,21 +102,27 @@ def untrusted_proxy(request: Request) -> str | None:
     proxy's when it trusts the proxy. So a request that has the header and still
     comes from an address that is not in it passed a proxy that is not trusted.
     """
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded is None or request.client is None:
+    addresses = {
+        address.strip()
+        for line in request.headers.getlist("x-forwarded-for")
+        for address in line.split(",")
+    } - {""}
+    if not addresses or request.client is None:
         return None
-    addresses = {address.strip() for address in forwarded.split(",")}
     return None if request.client.host in addresses else request.client.host
 
 
 def warn_about_proxy(request: Request) -> None:
-    """Say once that a proxy is not trusted, as nothing else shows it."""
-    if request.app.state.proxy_warned:
+    """Say once per proxy that it is not trusted, as nothing else shows it."""
+    warned: set[str] = request.app.state.proxies_warned
+    # Anyone who reaches the server directly can send the header too, so the
+    # first address to do so must not keep the real proxy out of the log.
+    if len(warned) >= PROXY_WARNINGS:
         return
     proxy = untrusted_proxy(request)
-    if proxy is None:
+    if proxy is None or proxy in warned:
         return
-    request.app.state.proxy_warned = True
+    warned.add(proxy)
     log.warning(
         "A request came through a proxy at %s whose forwarded headers are not trusted. "
         "The session cookie is not marked Secure, links to set a password start with "
@@ -312,7 +321,7 @@ def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
     app.state.failures_by_address = FailureLimiter(
         FAILED_SIGN_INS_PER_ADDRESS, SIGN_IN_PERIOD_SECONDS
     )
-    app.state.proxy_warned = False
+    app.state.proxies_warned = set()
     app.middleware("http")(protect)
     # The stylesheet holds the whole component kit and shrinks to a fraction.
     app.add_middleware(GZipMiddleware)
