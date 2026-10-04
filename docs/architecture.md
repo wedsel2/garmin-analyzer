@@ -263,6 +263,14 @@ Reference deployment, see [ADR 11](adr/0011-compose-deployment-behind-cloudflare
   Cloudflare Access in front. Home Assistant can show it as a sidebar webpage
   panel but does not route or authenticate it.
 
+Behind a proxy the web service needs the scheme, host and client address that
+the visitor used. The server takes them from the forwarded headers of a proxy
+whose address is in `FORWARDED_ALLOW_IPS`; the host header is passed on as it
+is. From these follow the `Secure` mark on the session cookie, the address in
+links to set a password, and the address that failed sign-ins are counted for.
+When a request has forwarded headers from a proxy that is not in that list, the
+web service names the address of that proxy in its log, once per address.
+
 ## Later
 
 - **Goals**: per-user goals (event, date, target) stored relationally.
