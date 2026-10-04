@@ -9,7 +9,7 @@ from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
 from garmin_analyzer import cli
-from garmin_analyzer.collector import SyncResult
+from garmin_analyzer.collector import REFETCH_DAYS, SyncResult
 from garmin_analyzer.db import make_session_factory
 from garmin_analyzer.garmin import GarminSession, LinkError, RelinkRequired
 from garmin_analyzer.links import AlreadySyncing, sync_lock
@@ -184,10 +184,19 @@ def collected(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     runs: list[dict[str, Any]] = []
 
     def fake_collect_user(
-        session: Session, user_id: Any, cipher: TokenCipher, since: date, today: date, pause: float
+        session: Session,
+        user_id: Any,
+        cipher: TokenCipher,
+        since: date,
+        today: date,
+        pause: float,
+        refetch_days: int,
     ) -> SyncResult:
         email = session.get_one(User, user_id).email
-        runs.append({"email": email, "since": since, "today": today, "pause": pause})
+        run = {"email": email, "since": since, "today": today, "pause": pause}
+        if refetch_days != REFETCH_DAYS:
+            run["refetch_days"] = refetch_days
+        runs.append(run)
         # A catch-up covered more than was asked for.
         return SyncResult(calls=20, rows=7, since=date(2020, 5, 17))
 
@@ -221,7 +230,7 @@ def test_collect_options_select_user_days_and_pace(
 def test_collect_reports_failed_requests_and_an_early_stop(
     linked_users: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    def partly(*args: Any) -> SyncResult:
+    def partly(*args: Any, **options: Any) -> SyncResult:
         return SyncResult(
             calls=5, rows=1, errors=["sleep_data 2026-01-15: 503"], stopped="rate limit reached"
         )
@@ -238,7 +247,7 @@ def test_collect_reports_failed_requests_and_an_early_stop(
 def test_collect_continues_with_other_users_when_one_cannot_be_opened(
     linked_users: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    def one_rejected(session: Session, user_id: Any, *args: Any) -> SyncResult:
+    def one_rejected(session: Session, user_id: Any, *args: Any, **options: Any) -> SyncResult:
         if session.get_one(User, user_id).email == "cyclist@example.com":
             raise RelinkRequired("tokens rejected")
         return SyncResult(calls=3)
@@ -254,7 +263,7 @@ def test_collect_continues_with_other_users_when_one_cannot_be_opened(
 def test_collect_continues_with_other_users_after_an_unexpected_failure(
     linked_users: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    def one_broken(session: Session, user_id: Any, *args: Any) -> SyncResult:
+    def one_broken(session: Session, user_id: Any, *args: Any, **options: Any) -> SyncResult:
         if session.get_one(User, user_id).email == "cyclist@example.com":
             raise ValueError("a response nobody foresaw")
         return SyncResult(calls=3)
@@ -271,7 +280,7 @@ def test_collect_continues_with_other_users_after_an_unexpected_failure(
 def test_collect_skips_a_user_who_is_already_being_synced(
     linked_users: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    def busy(session: Session, user_id: Any, *args: Any) -> SyncResult:
+    def busy(session: Session, user_id: Any, *args: Any, **options: Any) -> SyncResult:
         if session.get_one(User, user_id).email == "cyclist@example.com":
             raise AlreadySyncing("a backfill is running")
         return SyncResult(calls=3)
@@ -386,7 +395,8 @@ def test_worker_syncs_with_its_options_until_it_is_stopped(
         assert interval == timedelta(minutes=30)
         with Session(engine) as session:
             runner = session.scalars(select(User).where(User.email == "runner@example.com")).one()
-            assert sync_one(session, runner) is True
+            assert sync_one(session, runner, None) is True
+            assert sync_one(session, runner, 28) is True
         # What a stop request does to the running worker.
         handlers[signal.SIGTERM](signal.SIGTERM, None)
 
@@ -401,7 +411,15 @@ def test_worker_syncs_with_its_options_until_it_is_stopped(
             "since": today - timedelta(days=4),
             "today": today,
             "pause": 0.2,
-        }
+        },
+        # Asked for on the account page: four weeks, all of them fetched again.
+        {
+            "email": "runner@example.com",
+            "since": today - timedelta(days=27),
+            "today": today,
+            "pause": 0.2,
+            "refetch_days": 28,
+        },
     ]
     output = capsys.readouterr().out
     assert "worker started: every linked user is synced once per 30 minutes" in output

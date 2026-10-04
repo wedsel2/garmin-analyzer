@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from garmin_analyzer.models import GarminLink, PasswordLink, User
+from garmin_analyzer.models import GarminLink, LinkStatus, PasswordLink, User
 from garmin_analyzer.password_links import LIFETIME, create_link, link_user, use_link
 from garmin_analyzer.passwords import MIN_LENGTH, PasswordError, verify_password
 from garmin_analyzer.ratelimit import FailureLimiter
@@ -217,6 +217,7 @@ def account_page(
         {
             "user": user,
             "link": db.get(GarminLink, user.id),
+            "collect_periods": COLLECT_PERIODS,
             "name": (user.name or "") if name is None else name,
             "email": user.email if email is None else email,
             "saved": saved,
@@ -232,6 +233,27 @@ def account_page(
 @router.get("/account")
 def account(request: Request, db: Db, user: CurrentUser, saved: str = "") -> Response:
     return account_page(request, db, user, saved=bool(saved))
+
+
+# What the account page offers to load again, as days back from today. Every
+# day is some twenty requests to Garmin, so the longest takes about ten minutes.
+COLLECT_PERIODS = {3: "Last 3 days", 7: "Last week", 14: "Last 2 weeks", 28: "Last 4 weeks"}
+
+
+@router.post("/account/collect")
+def request_collect(db: Db, user: CurrentUser, days: Annotated[int, Form()] = 3) -> Response:
+    """Ask the worker to collect your data now instead of at the next round."""
+    if days not in COLLECT_PERIODS:
+        raise HTTPException(status_code=400, detail="Not a period that can be collected")
+    link = db.get(GarminLink, user.id)
+    if link is None or link.status is not LinkStatus.ACTIVE:
+        # Nothing can be collected until the account is linked, or linked again.
+        return redirect("/garmin")
+    if link.sync_requested_at is None:
+        link.sync_requested_at = datetime.now(UTC)
+        link.sync_requested_days = days
+        db.commit()
+    return redirect("/account")
 
 
 def refuse_current_password(request: Request, user: User, password: str) -> tuple[str, int] | None:

@@ -15,7 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from garmin_analyzer import coach, config, migrate
-from garmin_analyzer.collector import collect_user
+from garmin_analyzer.collector import REFETCH_DAYS, collect_user
 from garmin_analyzer.config import ConfigError, token_encryption_key
 from garmin_analyzer.db import make_engine, make_session_factory
 from garmin_analyzer.garmin import (
@@ -146,11 +146,19 @@ def collect(engine: Engine, args: argparse.Namespace) -> int:
 
 
 def sync_and_report(
-    session: Session, user: User, cipher: TokenCipher, since: date, today: date, pause: float
+    session: Session,
+    user: User,
+    cipher: TokenCipher,
+    since: date,
+    today: date,
+    pause: float,
+    refetch_days: int = REFETCH_DAYS,
 ) -> bool:
     """Sync one user and print how it went. False when the sync failed or stopped early."""
     try:
-        result = collect_user(session, user.id, cipher, since, today, pause)
+        result = collect_user(
+            session, user.id, cipher, since, today, pause, refetch_days=refetch_days
+        )
     except (NotLinked, RelinkRequired, GarminError, TokenDecryptError) as error:
         print(f"{user.email}: {error}", file=sys.stderr)
         return False
@@ -188,10 +196,12 @@ def worker(engine: Engine, args: argparse.Namespace) -> int:
     # unless it is handled.
     signal.signal(signal.SIGTERM, stop_worker)
 
-    def sync_one(session: Session, user: User) -> bool:
+    def sync_one(session: Session, user: User, requested_days: int | None) -> bool:
         today = date.today()
-        since = today - timedelta(days=args.days - 1)
-        return sync_and_report(session, user, cipher, since, today, args.pause)
+        since = today - timedelta(days=max(args.days, requested_days or 0) - 1)
+        return sync_and_report(
+            session, user, cipher, since, today, args.pause, requested_days or REFETCH_DAYS
+        )
 
     print(f"worker started: every linked user is synced once per {args.interval} minutes")
     try:

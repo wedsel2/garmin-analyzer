@@ -107,6 +107,11 @@ class GarminLink(Base):
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # When the last weekly catch-up over the previous two weeks completed.
     last_catch_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the user asked on the account page for a sync outside the interval.
+    # The worker clears it when it starts that sync. See ADR 22.
+    sync_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # How many days, counted back from today, that sync fetches again.
+    sync_requested_days: Mapped[int | None] = mapped_column(SmallInteger)
     last_error: Mapped[str | None] = mapped_column(Text)
 
 

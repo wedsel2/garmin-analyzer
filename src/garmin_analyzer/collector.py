@@ -274,14 +274,15 @@ def collect_user(
     today: date,
     pause: float = DEFAULT_PAUSE_SECONDS,
     sleep: Callable[[float], None] = time.sleep,
+    refetch_days: int = REFETCH_DAYS,
 ) -> SyncResult:
-    """Sync one user.
+    """Sync one user. The most recent refetch_days days are fetched even when stored.
 
     Raises NotLinked, RelinkRequired or GarminError when no session can be
     opened, and AlreadySyncing when another sync of this user is running.
     """
     with sync_lock(session, user_id):
-        return sync_user(session, user_id, cipher, since, today, pause, sleep)
+        return sync_user(session, user_id, cipher, since, today, pause, sleep, refetch_days)
 
 
 def sync_user(
@@ -292,6 +293,7 @@ def sync_user(
     today: date,
     pause: float,
     sleep: Callable[[float], None],
+    refetch_days: int = REFETCH_DAYS,
 ) -> SyncResult:
     try:
         garmin = open_link(session, user_id, cipher)
@@ -309,9 +311,8 @@ def sync_user(
     now = datetime.now(UTC)
     last_catch_up = session.get_one(GarminLink, user_id).last_catch_up_at
     catching_up = last_catch_up is None or now - last_catch_up >= CATCH_UP_INTERVAL
-    refetch_days = REFETCH_DAYS
     if catching_up:
-        refetch_days = CATCH_UP_DAYS
+        refetch_days = max(refetch_days, CATCH_UP_DAYS)
         since = min(since, today - timedelta(days=CATCH_UP_DAYS - 1))
     collector.result.since = since
     try:

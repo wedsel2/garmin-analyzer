@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from garmin_analyzer.db import make_engine
 from garmin_analyzer.models import GarminLink, LinkStatus, User
 from garmin_analyzer.users import add_user
-from garmin_analyzer.worker import TICK_SECONDS, due_users, run_due, run_forever
+from garmin_analyzer.worker import REQUEST_GAP, TICK_SECONDS, due_users, run_due, run_forever
 
 NOW = datetime(2026, 10, 4, 12, 0, tzinfo=UTC)
 HOUR = timedelta(hours=1)
@@ -22,6 +22,7 @@ def add_linked(
     email: str,
     synced_ago: timedelta | None,
     status: LinkStatus = LinkStatus.ACTIVE,
+    requested: bool = False,
 ) -> uuid.UUID:
     with Session(db) as session:
         user = add_user(session, email)
@@ -32,6 +33,8 @@ def add_linked(
                 encrypted_tokens=b"x",
                 status=status,
                 last_synced_at=None if synced_ago is None else NOW - synced_ago,
+                sync_requested_at=NOW if requested else None,
+                sync_requested_days=14 if requested else None,
             )
         )
         session.commit()
@@ -48,10 +51,12 @@ class Syncs:
 
     def __init__(self, fails_for: str | None = None) -> None:
         self.emails: list[str] = []
+        self.days: list[int | None] = []
         self.fails_for = fails_for
 
-    def __call__(self, session: Session, user: User) -> None:
+    def __call__(self, session: Session, user: User, days: int | None) -> None:
         self.emails.append(user.email)
+        self.days.append(days)
         if user.email == self.fails_for:
             raise RuntimeError("sync broke")
 
@@ -75,6 +80,58 @@ def test_a_user_tried_within_the_interval_is_not_due_again(db: Engine) -> None:
 
     assert due(db, {failing: NOW - timedelta(minutes=59)}) == []
     assert due(db, {failing: NOW - HOUR}) == ["failing@example.com"]
+
+
+def test_a_user_who_asked_for_a_sync_does_not_wait_for_the_interval(db: Engine) -> None:
+    add_linked(db, "asked@example.com", timedelta(minutes=20), requested=True)
+    add_linked(db, "just-synced@example.com", timedelta(minutes=4), requested=True)
+    add_linked(db, "relink@example.com", timedelta(days=2), LinkStatus.NEEDS_RELINK, requested=True)
+    tried = add_linked(db, "tried@example.com", timedelta(minutes=20), requested=True)
+
+    assert due(db, {tried: NOW - timedelta(minutes=4)}) == ["asked@example.com"]
+    assert due(db, {tried: NOW - REQUEST_GAP}) == ["asked@example.com", "tried@example.com"]
+
+
+def test_a_request_never_waits_longer_than_the_interval(db: Engine) -> None:
+    add_linked(db, "asked@example.com", timedelta(minutes=2), requested=True)
+
+    with Session(db) as session:
+        users = due_users(session, NOW, timedelta(minutes=1), {})
+
+    assert [user.email for user in users] == ["asked@example.com"]
+
+
+def test_a_request_is_spent_when_its_sync_starts(db: Engine) -> None:
+    asked = add_linked(db, "asked@example.com", timedelta(minutes=20), requested=True)
+    syncs = Syncs(fails_for="asked@example.com")
+    attempted: dict[uuid.UUID, datetime] = {}
+
+    with pytest.raises(RuntimeError):
+        run_due(db, syncs, HOUR, attempted, NOW)
+
+    assert syncs.days == [14]
+    with Session(db) as session:
+        link = session.get_one(GarminLink, asked)
+        assert (link.sync_requested_at, link.sync_requested_days) == (None, None)
+    assert run_due(db, syncs, HOUR, attempted, NOW + REQUEST_GAP) == 0
+
+
+def test_a_link_removed_during_the_round_does_not_stop_the_round(db: Engine) -> None:
+    add_linked(db, "a@example.com", None)
+    removed = add_linked(db, "b@example.com", None)
+    add_linked(db, "c@example.com", None)
+    emails: list[str] = []
+
+    def sync(session: Session, user: User, days: int | None) -> None:
+        emails.append(user.email)
+        if user.email == "a@example.com":
+            with Session(db) as other:
+                other.delete(other.get_one(GarminLink, removed))
+                other.commit()
+
+    assert run_due(db, sync, HOUR, {}, NOW) == 3
+    # The sync itself reports that the user has no link.
+    assert emails == ["a@example.com", "b@example.com", "c@example.com"]
 
 
 def test_run_due_syncs_each_due_user_once_and_remembers_the_attempt(db: Engine) -> None:
