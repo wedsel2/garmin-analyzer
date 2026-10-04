@@ -29,7 +29,15 @@ from garmin_analyzer.ratelimit import FailureLimiter
 from garmin_analyzer.sessions import end_session
 from garmin_analyzer.tokens import TokenCipher
 from garmin_analyzer.users import UserError, add_user, normalise_email, set_password
-from garmin_analyzer.web import accounts, api, dashboards, garmin_link, overview, shared
+from garmin_analyzer.web import (
+    accounts,
+    activity_pages,
+    api,
+    dashboards,
+    garmin_link,
+    overview,
+    shared,
+)
 from garmin_analyzer.web.shared import (
     COOKIE,
     HERE,
@@ -259,5 +267,6 @@ def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
     app.include_router(accounts.router, include_in_schema=False)
     app.include_router(garmin_link.router, include_in_schema=False)
     app.include_router(dashboards.router, include_in_schema=False)
+    app.include_router(activity_pages.router, include_in_schema=False)
     app.include_router(api.router)
     return app

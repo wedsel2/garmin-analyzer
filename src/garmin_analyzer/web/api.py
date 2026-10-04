@@ -7,10 +7,11 @@ from datetime import UTC, date, datetime, timedelta
 from math import ceil
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from garmin_analyzer.activities import MAX_ACTIVITY_ID, details_of, samples_from
 from garmin_analyzer.intraday import (
     INTRADAY_METRICS,
     activities_between,
@@ -67,6 +68,19 @@ class ActivityDays(BaseModel):
 
     dates: list[date]
     minutes: list[float | None]
+
+
+class ActivitySamples(BaseModel):
+    """What was recorded through an activity, thinned out for a chart.
+
+    `seconds` holds the time since the start for each value of the series:
+    heart_rate (bpm), speed (km/h), elevation (m), power (W) and cadence (per
+    minute), as far as they were recorded. `route` holds longitude and latitude.
+    """
+
+    seconds: list[float]
+    series: dict[str, list[float | None]]
+    route: list[tuple[float, float]]
 
 
 class Span(BaseModel):
@@ -210,3 +224,14 @@ def intraday(
         sleeps=[Span(**vars(event)) for event in sleeps_between(db, user.id, start, end)],
         activities=[Span(**vars(event)) for event in activities_between(db, user.id, start, end)],
     )
+
+
+@router.get("/activities/{activity_id}/samples")
+def activity_samples(
+    db: Db, user: ApiUser, activity_id: Annotated[int, Path(ge=1, le=MAX_ACTIVITY_ID)]
+) -> ActivitySamples:
+    """The series and the route of an activity of the signed-in user."""
+    samples = samples_from(details_of(db, user.id, activity_id))
+    if samples is None:
+        raise HTTPException(404, "Nothing was recorded through this activity")
+    return ActivitySamples(seconds=samples.seconds, series=samples.series, route=samples.route)

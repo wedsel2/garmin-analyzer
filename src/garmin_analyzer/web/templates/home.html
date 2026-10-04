@@ -51,7 +51,10 @@
 
 <section class="card mt-6 bg-base-100 shadow-sm">
   <div class="card-body p-4">
-    <h2 class="card-title">Recent activities</h2>
+    <div class="flex items-center justify-between">
+      <h2 class="card-title">Recent activities</h2>
+      <a class="link link-hover text-sm" href="/activities">All activities</a>
+    </div>
     {% if activities %}
     <div class="overflow-x-auto">
       <table class="table">
@@ -72,7 +75,9 @@
                 {{- activity.start_at.strftime("%Y-%m-%d %H:%M") }} UTC</time>
             </td>
             <td>
-              {{ activity.name or phrase(activity.type_key or "activity") }}
+              <a class="link link-hover font-medium" href="/activities/{{ activity.activity_id }}">
+                {{- activity.name or phrase(activity.type_key or "activity") -}}
+              </a>
               {% if activity.name and activity.type_key %}
               <span class="opacity-70">· {{ phrase(activity.type_key) }}</span>
               {% endif %}

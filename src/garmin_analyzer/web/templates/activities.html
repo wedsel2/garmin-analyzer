@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Activities{% endblock %}
+{% block scripts %}{% include "_chart_scripts.html" %}{% endblock %}
+{% block content %}
+{# Picking a sport or a page replaces this element with the one of the page asked for. #}
+<div id="dashboard">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-semibold">Activities</h1>
+    {% if sports %}
+    <form method="get" action="/activities" class="join"
+          hx-boost="true" hx-target="#dashboard" hx-select="#dashboard" hx-swap="outerHTML" hx-push-url="true">
+      <select name="sport" class="select select-sm join-item" aria-label="Sport">
+        <option value="">All sports</option>
+        {% for key in sports %}
+        <option value="{{ key }}" {{ "selected" if key == sport }}>{{ phrase(key) }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-sm join-item" type="submit">Show</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body p-4">
+      {% if activities %}
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Activity</th>
+              <th class="text-right">Distance</th>
+              <th class="text-right">Time</th>
+              <th class="text-right">Pace or speed</th>
+              <th class="text-right">Average heart rate</th>
+              <th class="text-right">Load</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for activity in activities %}
+            <tr>
+              <td class="whitespace-nowrap">
+                <time datetime="{{ activity.start_at.isoformat() }}" data-local>
+                  {{- activity.start_at.strftime("%Y-%m-%d %H:%M") }} UTC</time>
+              </td>
+              <td>
+                <a class="link link-hover font-medium" href="/activities/{{ activity.activity_id }}">
+                  {{- activity.name or phrase(activity.type_key or "activity") -}}
+                </a>
+                {% if activity.name and activity.type_key %}
+                <span class="opacity-70">· {{ phrase(activity.type_key) }}</span>
+                {% endif %}
+              </td>
+              <td class="text-right tabular-nums">{{ activity.distance_m|kilometres if activity.distance_m }}</td>
+              <td class="text-right tabular-nums">{{ activity.duration_s|duration }}</td>
+              <td class="text-right tabular-nums">{{ tempo(activity.type_key, activity.avg_speed_mps) }}</td>
+              <td class="text-right tabular-nums">
+                {% if activity.avg_hr is not none %}{{ activity.avg_hr|number }} bpm{% endif %}
+              </td>
+              <td class="text-right tabular-nums">
+                {% if activity.training_load is not none %}{{ activity.training_load|number }}{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="py-8 text-center opacity-70">No activities collected yet.</p>
+      {% endif %}
+
+      {% if pages > 1 %}
+      {% set query = "sport=" ~ sport|urlencode ~ "&" if sport else "" %}
+      <nav class="mt-4 flex items-center justify-between" aria-label="Pages"
+           hx-boost="true" hx-target="#dashboard" hx-select="#dashboard" hx-swap="outerHTML">
+        {% if page > 1 %}
+        <a class="btn btn-sm" href="/activities?{{ query }}page={{ page - 1 }}">Newer</a>
+        {% else %}
+        <span class="btn btn-sm btn-disabled" aria-disabled="true">Newer</span>
+        {% endif %}
+        <span class="text-sm opacity-70">Page {{ page }} of {{ pages }}</span>
+        {% if page < pages %}
+        <a class="btn btn-sm" href="/activities?{{ query }}page={{ page + 1 }}">Older</a>
+        {% else %}
+        <span class="btn btn-sm btn-disabled" aria-disabled="true">Older</span>
+        {% endif %}
+      </nav>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}
