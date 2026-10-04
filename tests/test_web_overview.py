@@ -144,7 +144,12 @@ def test_api_refuses_what_it_cannot_answer(
 def test_api_is_described_without_the_pages(client: TestClient) -> None:
     paths = client.get("/api/v1/openapi.json").json()["paths"]
 
-    assert list(paths) == ["/api/v1/daily", "/api/v1/weekly", "/api/v1/nights"]
+    assert list(paths) == [
+        "/api/v1/daily",
+        "/api/v1/weekly",
+        "/api/v1/nights",
+        "/api/v1/intraday",
+    ]
 
 
 def test_tile_compares_the_latest_value_with_the_days_before(db: Engine, user: User) -> None:

@@ -45,6 +45,18 @@
       ? "no data"
       : `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}${unit ? ` ${unit}` : ""}`;
 
+  // The lines of a tooltip as an element. Text is set as text, never as
+  // markup: names of activities come from the user, and the content security
+  // policy refuses inline styles anyway.
+  const tip = (lines) => {
+    const box = document.createElement("div");
+    lines.forEach((line, index) => {
+      if (index) box.append(document.createElement("br"));
+      box.append(line);
+    });
+    return box;
+  };
+
   // One request per address, however many charts read from it. Kept for one
   // round of drawing, so a page that stays open does not show old values.
   const requests = new Map();
@@ -62,7 +74,7 @@
   };
 
   // What the charts with axes share. `rows` gives the lines of the tooltip for
-  // a day: plain text, as the content security policy refuses inline styles.
+  // a day.
   const frame = (element, data, colour, rows, bars) => {
     const weekly = element.dataset.per === "week";
     const tick = data.dates.length > 300 || weekly ? longTickFormat : tickFormat;
@@ -107,7 +119,7 @@
         formatter: ([point]) => {
           if (!point) return "";
           const day = dayFormat.format(new Date(point.name));
-          return [weekly ? `Week of ${day}` : day, ...rows(point.dataIndex)].join("<br>");
+          return tip([weekly ? `Week of ${day}` : day, ...rows(point.dataIndex)]);
         },
       },
     };
@@ -162,7 +174,7 @@
           formatter: ([point]) => {
             if (!point) return "";
             const day = dayFormat.format(new Date(point.name));
-            return `${day}: ${amount(values[point.dataIndex], element.dataset.unit)}`;
+            return tip([`${day}: ${amount(values[point.dataIndex], element.dataset.unit)}`]);
           },
           axisPointer: { lineStyle: { color: colour.guide } },
         },
@@ -349,14 +361,122 @@
     },
   };
 
+  // One metric through a day on an axis of time, with the sleeps and
+  // activities of that day as shaded stretches. Null when nothing was measured.
+  builders.intraday = (element, data, colour) => {
+    const values = data.series[element.dataset.metrics];
+    if (values.every((value) => value === null)) return null;
+    const unit = element.dataset.unit;
+    const bars = element.dataset.style === "bar";
+    const width = data.bucket_seconds * 1000;
+    const end = Date.parse(data.times.at(-1)) + width;
+    const shade = (events, fill, opacity) =>
+      events.map((event) => [
+        { xAxis: event.start_at, itemStyle: { color: fill, opacity } },
+        { xAxis: event.end_at },
+      ]);
+    const during = (events, moment) =>
+      events
+        .filter((event) => moment >= Date.parse(event.start_at) && moment < Date.parse(event.end_at))
+        .map((event) => event.label);
+    return {
+      animation: false,
+      // Fixed margins, so the hours of the charts below each other line up.
+      grid: { left: 40, right: 16, top: 8, bottom: 24 },
+      xAxis: {
+        type: "time",
+        min: data.times[0],
+        max: end,
+        axisLine: { lineStyle: { color: colour.grid } },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: {
+          color: colour.label,
+          hideOverlap: true,
+          formatter: (moment) => clockFormat.format(new Date(moment)),
+        },
+      },
+      yAxis: {
+        type: "value",
+        scale: !bars,
+        splitNumber: 3,
+        axisLabel: { color: colour.label },
+        splitLine: { lineStyle: { color: colour.grid } },
+      },
+      tooltip: {
+        trigger: "axis",
+        confine: true,
+        padding: [4, 8],
+        backgroundColor: colour.tip,
+        borderColor: colour.guide,
+        textStyle: { color: colour.text, fontSize: 12 },
+        axisPointer: { lineStyle: { color: colour.guide } },
+        formatter: ([point]) => {
+          if (!point) return "";
+          const moment = Date.parse(point.value[0]);
+          const from = clockFormat.format(new Date(moment));
+          const to = clockFormat.format(new Date(moment + width));
+          return tip([
+            `${from} to ${to}: ${amount(point.value[1], unit)}`,
+            ...during(data.sleeps, moment),
+            ...during(data.activities, moment),
+          ]);
+        },
+      },
+      series: [
+        {
+          type: bars ? "bar" : "line",
+          data: data.times.map((time, index) => [time, values[index]]),
+          // As wide as the line, so a value between two gaps still shows.
+          symbol: "circle",
+          symbolSize: 2,
+          showAllSymbol: true,
+          barMaxWidth: 8,
+          lineStyle: { width: 2, color: colour.accent },
+          itemStyle: { color: colour.accent },
+          markArea: {
+            silent: true,
+            data: [
+              ...shade(data.sleeps, colour.line, 0.18),
+              ...shade(data.activities, colour.accent, 0.18),
+            ],
+          },
+        },
+      ],
+    };
+  };
+
+  // Where an element gets its values. For a day, the hours that belong to it
+  // are those between two midnights in the zone of this device.
+  const source = (element) => {
+    const { src, day } = element.dataset;
+    if (!day) return src;
+    const [year, month, date] = day.split("-").map(Number);
+    const start = new Date(year, month - 1, date).toISOString();
+    const end = new Date(year, month - 1, date + 1).toISOString();
+    return `${src}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+  };
+
   const charts = new Map();
 
   async function draw(element) {
-    const data = await load(element.dataset.src);
+    const data = await load(source(element));
     if (!element.isConnected) return;
+    const option = builders[element.dataset.chart](element, data, colours());
+    // Without values the text marked data-empty after the element takes its place.
+    const empty = element.nextElementSibling;
+    element.hidden = !option;
+    if (empty?.matches("[data-empty]")) empty.hidden = Boolean(option);
+    if (!option) return;
     const chart = charts.get(element) ?? echarts.init(element);
     charts.set(element, chart);
-    chart.setOption(builders[element.dataset.chart](element, data, colours()), true);
+    chart.setOption(option, true);
+    chart.resize();
+    if (element.dataset.group) {
+      // Charts of one group move their pointers together.
+      chart.group = element.dataset.group;
+      echarts.connect(element.dataset.group);
+    }
   }
 
   function drawAll() {

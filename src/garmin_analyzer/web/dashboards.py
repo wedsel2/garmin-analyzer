@@ -9,10 +9,11 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from garmin_analyzer.intraday import INTRADAY_METRICS
 from garmin_analyzer.metrics import DAILY_METRICS, daily_series, first_day, mean
 from garmin_analyzer.models import User
 from garmin_analyzer.web.api import MAX_DAYS
-from garmin_analyzer.web.shared import CurrentUser, Db, templates, today
+from garmin_analyzer.web.shared import CurrentUser, Db, number, templates, today
 
 router = APIRouter()
 
@@ -176,3 +177,76 @@ def recovery(
 @router.get("/sleep")
 def sleep(request: Request, db: Db, user: CurrentUser, key: PeriodKey = DEFAULT_PERIOD) -> Response:
     return page(request, db, user, "Sleep", SLEEP, key)
+
+
+# The charts of the day view. One request holds the metrics that share a bucket;
+# steps come per quarter of an hour, so finer buckets would stay empty.
+DAY_METRICS = ("heart_rate", "stress", "body_battery", "respiration", "hrv")
+DAY_CHARTS = (
+    ("heart_rate", "line"),
+    ("stress", "line"),
+    ("body_battery", "line"),
+    ("steps", "bar"),
+    ("respiration", "line"),
+    ("hrv", "line"),
+)
+DAY_SOURCES = {
+    "line": f"/api/v1/intraday?metrics={','.join(DAY_METRICS)}&bucket=300",
+    "bar": "/api/v1/intraday?metrics=steps&bucket=900",
+}
+
+
+def figures_of(db: Session, user_id: uuid.UUID, day: date) -> list[tuple[str, str]]:
+    """What Garmin summed up for the day, as a label and a text each."""
+    keys = [
+        "steps",
+        "resting_hr",
+        "avg_stress",
+        "body_battery_low",
+        "body_battery_high",
+        "sleep_duration",
+        "sleep_score",
+    ]
+    steps, resting, stress, low, high, slept, score = (
+        values[0] for values in daily_series(db, user_id, day, day, keys).values()
+    )
+    figures = []
+    if steps is not None:
+        figures.append(("Steps", number(steps)))
+    if resting is not None:
+        figures.append(("Resting heart rate", f"{number(resting)} bpm"))
+    if stress is not None:
+        figures.append(("Stress", number(stress)))
+    if low is not None and high is not None:
+        figures.append(("Body battery", f"{number(low)} to {number(high)}"))
+    if slept is not None:
+        scored = f", score {number(score)}" if score is not None else ""
+        figures.append(("Sleep", f"{number(slept, 'h')} h{scored}"))
+    return figures
+
+
+@router.get("/day")
+def day(
+    request: Request, db: Db, user: CurrentUser, asked: Annotated[str, Query(alias="date")] = ""
+) -> Response:
+    """One day in detail. Which hours belong to it is for the browser to say: it knows the zone."""
+    latest = today()
+    try:
+        shown = min(date.fromisoformat(asked), latest)
+    except ValueError:
+        shown = latest
+    return templates.TemplateResponse(
+        request,
+        "day.html",
+        {
+            "user": user,
+            "day": shown,
+            "label": f"{shown:%A} {shown.day} {shown:%B %Y}",
+            "previous": shown - timedelta(days=1),
+            "next": shown + timedelta(days=1) if shown < latest else None,
+            "figures": figures_of(db, user.id, shown),
+            "charts": [
+                (INTRADAY_METRICS[key], key, style, DAY_SOURCES[style]) for key, style in DAY_CHARTS
+            ],
+        },
+    )

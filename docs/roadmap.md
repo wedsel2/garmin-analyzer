@@ -24,8 +24,8 @@ and the first live collection.
 
 1. Series API, chart script and the overview. Done.
 2. Recovery and sleep pages, with a period to pick. Done.
-3. Day view: intraday heart rate, stress, body battery, steps and respiration
-   on one time axis, bucketed on the server.
+3. Day view: intraday heart rate, stress, body battery, steps, respiration and
+   HRV on one time axis, bucketed on the server. Done.
 4. Training page.
 5. Activities list and detail, with the route drawn as a line without a map.
 

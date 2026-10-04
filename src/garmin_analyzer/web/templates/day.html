@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ label }}{% endblock %}
+{% block scripts %}{% include "_chart_scripts.html" %}{% endblock %}
+{% block content %}
+{# Going to another day replaces this element with the one of the page asked for. #}
+<div id="dashboard">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-semibold">{{ label }}</h1>
+    <nav class="join" aria-label="Day"
+         hx-boost="true" hx-target="#dashboard" hx-select="#dashboard" hx-swap="outerHTML">
+      <a class="btn join-item btn-sm" href="?date={{ previous }}">Previous</a>
+      {% if next %}
+      <a class="btn join-item btn-sm" href="?date={{ next }}">Next</a>
+      <a class="btn join-item btn-sm" href="/day">Today</a>
+      {% else %}
+      <span class="btn join-item btn-sm btn-disabled" aria-disabled="true">Next</span>
+      {% endif %}
+    </nav>
+  </div>
+
+  {% if figures %}
+  <dl class="mb-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-5">
+    {% for name, text in figures %}
+    <div>
+      <dt class="text-sm opacity-70">{{ name }}</dt>
+      <dd class="font-semibold">{{ text }}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% endif %}
+
+  <p class="mb-4 text-sm opacity-70">
+    The day runs from midnight to midnight in the time zone of this device. Sleep is shaded grey,
+    activities blue.
+  </p>
+
+  <div class="grid gap-4">
+    {% for metric, key, style, src in charts %}
+    <section class="card bg-base-100 shadow-sm">
+      <div class="card-body gap-1 p-4">
+        <h2 class="card-title text-base">
+          {{ metric.label }}
+          {% if metric.unit %}<span class="text-sm font-normal opacity-70">{{ metric.unit }}</span>{% endif %}
+        </h2>
+        {# The charts of a group move their pointers together. #}
+        <div class="h-36" role="img" aria-label="{{ metric.label }} through the day"
+             data-chart="intraday" data-group="day" data-src="{{ src }}" data-day="{{ day }}"
+             data-metrics="{{ key }}" data-unit="{{ metric.unit }}" data-style="{{ style }}"></div>
+        <p class="py-4 text-center text-sm opacity-70" data-empty hidden>No data on this day.</p>
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
