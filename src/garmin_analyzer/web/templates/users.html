@@ -36,7 +36,10 @@
       <tbody>
         {% for row in rows %}
         <tr>
-          <td>{{ row.user.email }}</td>
+          <td>
+            {{ row.user.email }}
+            {% if row.user.name %}<div class="text-sm opacity-70">{{ row.user.name }}</div>{% endif %}
+          </td>
           <td>{% if row.user.is_admin %}Administrator{% else %}User{% endif %}</td>
           <td>{{ row.state }}</td>
           <td class="flex flex-wrap justify-end gap-2">

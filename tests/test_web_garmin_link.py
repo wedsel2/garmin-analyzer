@@ -76,11 +76,17 @@ def stored_link(db: Engine) -> GarminLink | None:
         return session.scalars(select(GarminLink)).one_or_none()
 
 
+GARMIN_BLOCK = '<a href="/garmin" class="card '
+
+
 def test_the_overview_leads_to_the_page_that_explains_linking(client: TestClient) -> None:
-    for path in ("/", "/account"):
-        status = client.get(path).text
-        assert '<a class="badge badge-ghost" href="/garmin">Not linked</a>' in status
-        assert "Link Garmin" in status
+    assert (
+        '<a class="btn btn-primary btn-sm" href="/garmin">Link Garmin</a>' in client.get("/").text
+    )
+    account = client.get("/account").text
+    assert GARMIN_BLOCK in account
+    assert "border-error" in account
+    assert '<span class="badge badge-error">Not linked</span>' in account
 
     page = client.get("/garmin")
 
@@ -102,11 +108,23 @@ def test_pasting_the_address_links_the_account(
     assert link.status is LinkStatus.ACTIVE
     assert CIPHER.decrypt(link.encrypted_tokens) == "linked-tokens"
     assert b"linked-tokens" not in link.encrypted_tokens
-    for path in ("/", "/account"):
-        page = client.get(path).text
-        assert "Nothing has been collected yet" in page
-        assert '<a class="badge badge-success" href="/garmin">Linked</a>' in page
-        assert "Manage link" in page
+    account = client.get("/account").text
+    assert GARMIN_BLOCK in account
+    assert "border-success" in account
+    assert '<span class="badge badge-success">Linked</span>' in account
+    assert "Nothing has been collected yet" in account
+    assert "Manage link" not in account
+
+
+def test_the_overview_says_nothing_about_a_link_that_works(
+    client: TestClient, pasted: list[str]
+) -> None:
+    client.post("/garmin/link", data={"address": PASTED})
+
+    overview = client.get("/").text
+
+    assert 'href="/garmin"' not in overview
+    assert "Linked" not in overview
 
 
 def test_a_refused_ticket_is_explained_and_nothing_is_stored(
@@ -149,9 +167,9 @@ def test_linking_again_makes_a_link_that_needed_it_active(
         )
         session.commit()
     assert "Sign in to Garmin again" in client.get("/").text
-    assert '<a class="badge badge-error" href="/garmin">Sign-in needed</a>' in (
-        client.get("/account").text
-    )
+    account = client.get("/account").text
+    assert "border-error" in account
+    assert '<span class="badge badge-error">Sign-in needed</span>' in account
     assert "Garmin no longer accepts the link" in client.get("/garmin").text
 
     assert client.post("/garmin/link", data={"address": PASTED}).status_code == 303

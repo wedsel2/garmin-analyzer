@@ -85,7 +85,7 @@ def test_setup_creates_the_administrator_and_signs_in(client: TestClient, db: En
         assert verify_password(user.password_hash, PASSWORD)
     home = client.get("/")
     assert home.status_code == 200
-    assert EMAIL in home.text
+    assert 'href="/account"' in home.text
     assert "No Garmin account is linked yet" in home.text
 
 
@@ -297,7 +297,10 @@ def test_home_shows_only_the_link_of_the_signed_in_user(
     with Session(db) as session:
         session.add(GarminLink(user_id=account.id, encrypted_tokens=b"x"))
         session.commit()
-    assert "Nothing has been collected yet" in client.get("/").text
+    home = client.get("/").text
+    assert "No Garmin account is linked yet" not in home
+    assert "Garmin no longer accepts the link" not in home
+    assert "Nothing has been collected yet" in client.get("/account").text
 
     with Session(db) as session:
         link = session.get_one(GarminLink, account.id)

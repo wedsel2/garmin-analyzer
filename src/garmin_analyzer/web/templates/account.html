@@ -2,12 +2,54 @@
 {% block title %}Account{% endblock %}
 {% block content %}
 <h1 class="mb-4 text-2xl font-semibold">Account</h1>
-{% include "_garmin_status.html" %}
+{# The whole block leads to the page that links, or links again. #}
+{% set linked = link is not none and link.status.value == "active" %}
+<a href="/garmin" class="card max-w-md border bg-base-100 shadow-sm transition-shadow hover:shadow-md {{ 'border-success' if linked else 'border-error' }}">
+  <div class="card-body">
+    <div class="flex items-center justify-between">
+      <h2 class="card-title">Garmin</h2>
+      {% if link is none %}
+      <span class="badge badge-error">Not linked</span>
+      {% elif not linked %}
+      <span class="badge badge-error">Sign-in needed</span>
+      {% else %}
+      <span class="badge badge-success">Linked</span>
+      {% endif %}
+    </div>
+    {% if link is none %}
+    <p>No Garmin account is linked yet. Link one to start collecting.</p>
+    {% elif not linked %}
+    <p>Garmin no longer accepts the link. Sign in to Garmin again to continue collecting.</p>
+    {% elif link.last_synced_at %}
+    <p>Last collected on {{ link.last_synced_at.strftime("%Y-%m-%d at %H:%M") }} UTC.</p>
+    {% else %}
+    <p>Nothing has been collected yet.</p>
+    {% endif %}
+  </div>
+</a>
+<section class="card mt-6 max-w-md bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h2 class="card-title">Profile</h2>
+    {% if saved %}<p class="alert alert-success alert-soft" role="status">Saved.</p>{% endif %}
+    {% if profile_error %}<p class="alert alert-error alert-soft" role="alert">{{ profile_error }}</p>{% endif %}
+    <form method="post" action="/account/profile" class="flex flex-col gap-1">
+      <label class="label" for="name">Name</label>
+      <input class="input w-full" id="name" name="name" type="text" value="{{ name }}" autocomplete="name" maxlength="{{ max_name_length }}">
+      <label class="label mt-2" for="email">Email address</label>
+      <input class="input w-full" id="email" name="email" type="email" value="{{ email }}" autocomplete="email" required>
+      <p class="text-sm opacity-70">You sign in with this address.</p>
+      <label class="label mt-2" for="email_password">Current password</label>
+      <input class="input w-full" id="email_password" name="current_password" type="password" autocomplete="current-password">
+      <p class="text-sm opacity-70">Only needed to change the email address.</p>
+      <button class="btn btn-primary mt-4" type="submit">Save</button>
+    </form>
+  </div>
+</section>
 <section class="card mt-6 max-w-md bg-base-100 shadow-sm">
   <div class="card-body">
     <h2 class="card-title">Change password</h2>
-    <p class="opacity-70">For {{ user.email }}. This signs you out on your other devices.</p>
-    {% if error %}<p class="alert alert-error alert-soft" role="alert">{{ error }}</p>{% endif %}
+    <p class="opacity-70">This signs you out on your other devices.</p>
+    {% if password_error %}<p class="alert alert-error alert-soft" role="alert">{{ password_error }}</p>{% endif %}
     <form method="post" action="/account/password" class="flex flex-col gap-1">
       <input type="hidden" name="username" value="{{ user.email }}" autocomplete="username">
       <label class="label" for="current_password">Current password</label>

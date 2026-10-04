@@ -143,8 +143,8 @@ recorded is left out. An activity of someone else does not exist for a user.
   without a password and a link, shown once, with which its holder sets the
   password. The same kind of link resets a lost password. A link works once
   and for 7 days.
-- A user changes their own password on the Account page, which asks for the
-  current one.
+- A user changes their own name, email address and password on the Account
+  page. Another email address or password asks for the current password.
 - The administrator can remove a user, which removes everything stored for
   them, but sees only accounts: never another user's health data.
 - `user-password` on the command line sets a password, for an account made with
@@ -173,7 +173,8 @@ See [ADR 8](adr/0008-built-in-accounts-and-invites.md),
 Scripted sign-in is never used: Garmin blocks it and bans the IP address.
 
 In the browser this is the Link Garmin page, reached from the Garmin status on
-the overview and on the Account page. The
+the Account page. The overview points to it only when there is no link or the
+link needs signing in again. The
 lock that allows one sync per user is taken only for the ticket exchange, not
 while the user signs in; when a sync of that user is running, linking is
 refused before the ticket is spent. A user gets 5 attempts in 15 minutes, as

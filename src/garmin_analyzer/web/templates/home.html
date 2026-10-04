@@ -3,9 +3,18 @@
 {% block scripts %}{% include "_chart_scripts.html" %}{% endblock %}
 {% block content %}
 <h1 class="mb-4 text-2xl font-semibold">Overview</h1>
-{% set collecting = link is not none and link.status.value == "active" %}
-{% if not collecting %}
-<div class="mb-6">{% include "_garmin_status.html" %}</div>
+{% if link is none %}
+<section class="card max-w-md bg-base-100 shadow-sm">
+  <div class="card-body">
+    <p>No Garmin account is linked yet, so there is nothing to show.</p>
+    <div class="card-actions"><a class="btn btn-primary btn-sm" href="/garmin">Link Garmin</a></div>
+  </div>
+</section>
+{% elif link.status.value == "needs_relink" %}
+<p class="alert alert-warning alert-soft mb-6" role="alert">
+  <span>Collecting has stopped: Garmin no longer accepts the link.
+    <a class="link" href="/garmin">Sign in to Garmin again</a>.</span>
+</p>
 {% endif %}
 
 {% if link is not none %}
@@ -97,9 +106,5 @@
     {% endif %}
   </div>
 </section>
-{% endif %}
-
-{% if collecting %}
-<div class="mt-6">{% include "_garmin_status.html" %}</div>
 {% endif %}
 {% endblock %}

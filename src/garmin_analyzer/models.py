@@ -48,6 +48,7 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
     # Stored lower-cased by the application.
     email: Mapped[str] = mapped_column(Text, unique=True)
+    name: Mapped[str | None] = mapped_column(Text)
     password_hash: Mapped[str] = mapped_column(Text)
     is_admin: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

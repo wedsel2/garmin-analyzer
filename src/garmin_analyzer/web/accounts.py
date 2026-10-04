@@ -17,7 +17,16 @@ from garmin_analyzer.models import GarminLink, PasswordLink, User
 from garmin_analyzer.password_links import LIFETIME, create_link, link_user, use_link
 from garmin_analyzer.passwords import MIN_LENGTH, PasswordError, verify_password
 from garmin_analyzer.ratelimit import FailureLimiter
-from garmin_analyzer.users import NO_PASSWORD, UserError, add_user, normalise_email, set_password
+from garmin_analyzer.users import (
+    MAX_NAME_LENGTH,
+    NO_PASSWORD,
+    UserError,
+    add_user,
+    change_email,
+    normalise_email,
+    set_name,
+    set_password,
+)
 from garmin_analyzer.web.shared import (
     MAX_EMAIL_LENGTH,
     Admin,
@@ -189,24 +198,95 @@ def set_password_from_link(
 
 
 def account_page(
-    request: Request, db: Session, user: User, error: str | None = None, status_code: int = 200
+    request: Request,
+    db: Session,
+    user: User,
+    *,
+    profile_error: str | None = None,
+    password_error: str | None = None,
+    status_code: int = 200,
+    name: str | None = None,
+    email: str | None = None,
+    saved: bool = False,
 ) -> Response:
+    """The account page. A refused profile form comes back with what was entered."""
     return templates.TemplateResponse(
         request,
         "account.html",
         {
             "user": user,
             "link": db.get(GarminLink, user.id),
-            "error": error,
+            "name": (user.name or "") if name is None else name,
+            "email": user.email if email is None else email,
+            "saved": saved,
+            "profile_error": profile_error,
+            "password_error": password_error,
             "min_length": MIN_LENGTH,
+            "max_name_length": MAX_NAME_LENGTH,
         },
         status_code=status_code,
     )
 
 
 @router.get("/account")
-def account(request: Request, db: Db, user: CurrentUser) -> Response:
-    return account_page(request, db, user)
+def account(request: Request, db: Db, user: CurrentUser, saved: bool = False) -> Response:
+    return account_page(request, db, user, saved=saved)
+
+
+def refuse_current_password(request: Request, user: User, password: str) -> tuple[str, int] | None:
+    """Why the current password is not accepted and the status to answer with, if it is not."""
+    # The same count as for signing in, so a session left open somewhere does
+    # not give unlimited guesses at the current password.
+    failures: FailureLimiter = request.app.state.failures_by_email
+    if not failures.attempt(user.email):
+        return "Too many failed attempts. Try again in 15 minutes.", 429
+    if not verify_password(user.password_hash, password):
+        return "The current password is not right.", 400
+    failures.reset(user.email)
+    return None
+
+
+@router.post("/account/profile")
+def change_profile(
+    request: Request,
+    db: Db,
+    user: CurrentUser,
+    email: Annotated[str, Form()],
+    name: Annotated[str, Form()] = "",
+    current_password: Annotated[str, Form()] = "",
+) -> Response:
+    """Change your own name and email address. Another address needs the current password."""
+    new_email = normalise_email(email)[:MAX_EMAIL_LENGTH]
+    if new_email != user.email:
+        # The address is what you sign in with: a session left open somewhere
+        # must not be enough to take the account over.
+        refused = refuse_current_password(request, user, current_password)
+        if refused is not None:
+            return account_page(
+                request,
+                db,
+                user,
+                profile_error=refused[0],
+                status_code=refused[1],
+                name=name,
+                email=email,
+            )
+        try:
+            change_email(db, user, new_email)
+        except UserError as error:
+            db.rollback()
+            return account_page(
+                request,
+                db,
+                user,
+                profile_error=sentence(error),
+                status_code=400,
+                name=name,
+                email=email,
+            )
+    set_name(user, name)
+    db.commit()
+    return redirect("/account?saved=true")
 
 
 @router.post("/account/password")
@@ -219,22 +299,15 @@ def change_password(
     password_again: Annotated[str, Form()],
 ) -> Response:
     """Change your own password. Signs you out everywhere else."""
-    # The same count as for signing in, so a session left open somewhere does
-    # not give unlimited guesses at the current password.
-    failures: FailureLimiter = request.app.state.failures_by_email
-    if not failures.attempt(user.email):
-        return account_page(
-            request, db, user, "Too many failed attempts. Try again in 15 minutes.", 429
-        )
-    if not verify_password(user.password_hash, current_password):
-        return account_page(request, db, user, "The current password is not right.", 400)
-    failures.reset(user.email)
+    refused = refuse_current_password(request, user, current_password)
+    if refused is not None:
+        return account_page(request, db, user, password_error=refused[0], status_code=refused[1])
     try:
         if password != password_again:
             raise PasswordError("the two new passwords are not the same")
         set_password(db, user, password)
     except PasswordError as error:
         db.rollback()
-        return account_page(request, db, user, sentence(error), 400)
+        return account_page(request, db, user, password_error=sentence(error), status_code=400)
     # Every session was ended, this one included; continue in a new one.
     return start_session(request, db, user)
