@@ -359,9 +359,9 @@ def test_the_top_bar_names_the_account_page_not_the_user(admin: TestClient) -> N
 def test_a_user_sets_their_name_without_their_password(admin: TestClient, db: Engine) -> None:
     response = admin.post("/account/profile", data={"name": "  Ada Lovelace ", "email": ADMIN})
 
-    assert (response.status_code, response.headers["location"]) == (303, "/account?saved=true")
+    assert (response.status_code, response.headers["location"]) == (303, "/account?saved=1")
     assert stored_profile(db) == (ADMIN, "Ada Lovelace")
-    page = admin.get("/account?saved=true").text
+    page = admin.get("/account?saved=1").text
     assert "Saved." in page
     assert 'value="Ada Lovelace"' in page
     assert "Ada Lovelace" in admin.get("/users").text
@@ -451,3 +451,19 @@ def test_the_account_page_needs_a_signed_in_user(anonymous: TestClient) -> None:
         data={"current_password": "x", "password": "y", "password_again": "y"},
     )
     assert response.headers["location"] == "/login"
+
+
+def test_an_address_taken_while_the_profile_is_saved_is_refused(
+    admin: TestClient, db: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    invite(admin)
+    monkeypatch.setattr("garmin_analyzer.users.check_new_email", lambda session, email: None)
+
+    response = admin.post(
+        "/account/profile", data={"name": "Ada", "email": FRIEND, "current_password": PASSWORD}
+    )
+
+    assert response.status_code == 400
+    assert f"A user with email {FRIEND} already exists." in response.text
+    assert emails(db) == [ADMIN, FRIEND]
+    assert admin.get("/account?saved=anything").status_code == 200

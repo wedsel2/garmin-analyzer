@@ -11,6 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from garmin_analyzer.models import GarminLink, PasswordLink, User
@@ -229,8 +230,8 @@ def account_page(
 
 
 @router.get("/account")
-def account(request: Request, db: Db, user: CurrentUser, saved: bool = False) -> Response:
-    return account_page(request, db, user, saved=saved)
+def account(request: Request, db: Db, user: CurrentUser, saved: str = "") -> Response:
+    return account_page(request, db, user, saved=bool(saved))
 
 
 def refuse_current_password(request: Request, user: User, password: str) -> tuple[str, int] | None:
@@ -256,37 +257,37 @@ def change_profile(
     current_password: Annotated[str, Form()] = "",
 ) -> Response:
     """Change your own name and email address. Another address needs the current password."""
+
+    def refused(error: str, status_code: int = 400) -> Response:
+        return account_page(
+            request,
+            db,
+            user,
+            profile_error=error,
+            status_code=status_code,
+            name=name,
+            email=email,
+        )
+
     new_email = normalise_email(email)[:MAX_EMAIL_LENGTH]
     if new_email != user.email:
         # The address is what you sign in with: a session left open somewhere
         # must not be enough to take the account over.
-        refused = refuse_current_password(request, user, current_password)
-        if refused is not None:
-            return account_page(
-                request,
-                db,
-                user,
-                profile_error=refused[0],
-                status_code=refused[1],
-                name=name,
-                email=email,
-            )
-        try:
-            change_email(db, user, new_email)
-        except UserError as error:
-            db.rollback()
-            return account_page(
-                request,
-                db,
-                user,
-                profile_error=sentence(error),
-                status_code=400,
-                name=name,
-                email=email,
-            )
-    set_name(user, name)
-    db.commit()
-    return redirect("/account?saved=true")
+        wrong = refuse_current_password(request, user, current_password)
+        if wrong is not None:
+            return refused(*wrong)
+    try:
+        change_email(db, user, new_email)
+        set_name(user, name)
+        db.commit()
+    except UserError as error:
+        db.rollback()
+        return refused(sentence(error))
+    except IntegrityError:
+        # Someone else took the address between the check and the commit.
+        db.rollback()
+        return refused(f"A user with email {new_email} already exists.")
+    return redirect("/account?saved=1")
 
 
 @router.post("/account/password")
