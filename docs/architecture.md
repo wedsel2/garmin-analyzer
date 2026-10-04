@@ -80,7 +80,20 @@ are drawn in the time zone of the device, which the server does not know.
 Picking a period fetches the page again through HTMX and replaces only the
 dashboard; without scripts the same links load the whole page.
 
-The day view, training and activities follow.
+The **day view** shows one day: what Garmin summed up for it, and heart rate,
+stress, body battery, steps, respiration and HRV through the day, one chart
+under the other on the same hours, with their pointers moving together. Sleep
+and activities are shaded. `/api/v1/intraday` gives the samples between two
+moments in buckets (5 minutes; 15 for steps, which Garmin gives per quarter),
+averaged or, for steps, added up in the database, together with the sleeps and
+activities in that time. The browser asks for the hours between two midnights
+in its own time zone, as the server does not know the zone of the user. The
+intraday metrics are listed in `intraday.py`.
+
+Text from the API is put into a tooltip as text, never as markup: the name of
+an activity is whatever the user typed in Garmin Connect.
+
+Training and activities follow.
 
 ## Users and access
 
