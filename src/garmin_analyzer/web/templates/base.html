@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} - Garmin Analyzer</title>
   <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  {# With the cookies, so a proxy that asks for a sign-in in front of the site lets it through. #}
+  <link rel="manifest" href="/static/manifest.webmanifest" crossorigin="use-credentials">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1d232a" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/install.js" defer></script>
   {% block scripts %}{% endblock %}
 </head>
 <body class="min-h-screen bg-base-200 text-base-content">
