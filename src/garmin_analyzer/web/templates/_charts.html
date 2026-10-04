@@ -1,0 +1,27 @@
+{# A card per chart. Needs `charts` and `period`. #}
+<div class="grid gap-4 lg:grid-cols-2">
+  {% for view in charts %}
+  <section class="card bg-base-100 shadow-sm">
+    <div class="card-body gap-1 p-4">
+      <h2 class="card-title text-base">{{ view.chart.title }}</h2>
+      {% if view.figure is not none %}
+      <p>
+        <span class="text-2xl font-semibold">{{ view.figure|number(view.unit) }}</span>
+        <span class="text-sm opacity-70">{{ view.unit }} {{ "latest" if view.chart.latest else "on average" }}</span>
+      </p>
+      {% endif %}
+      {% if view.src %}
+      <div class="h-56" role="img" aria-label="{{ view.chart.title }} over {{ period.label|lower }}"
+           data-chart="{{ view.chart.kind }}" data-src="{{ view.src }}"
+           data-metrics="{{ view.chart.metrics|join(',') }}" data-labels="{{ view.labels }}"
+           {% if view.chart.band %}data-band="{{ view.chart.band|join(',') }}" data-band-label="{{ view.chart.band_label }}"{% endif %}
+           data-unit="{{ view.unit }}" data-per="{{ 'week' if view.weekly else 'day' }}"></div>
+      <p class="py-8 text-center text-sm opacity-70" data-empty hidden>No data in this period.</p>
+      {% if view.chart.about %}<p class="text-sm opacity-70">{{ view.chart.about }}</p>{% endif %}
+      {% else %}
+      <p class="py-8 text-center text-sm opacity-70">{{ view.missing }}</p>
+      {% endif %}
+    </div>
+  </section>
+  {% endfor %}
+</div>

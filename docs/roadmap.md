@@ -26,7 +26,7 @@ and the first live collection.
 2. Recovery and sleep pages, with a period to pick. Done.
 3. Day view: intraday heart rate, stress, body battery, steps, respiration and
    HRV on one time axis, bucketed on the server. Done.
-4. Training page.
+4. Training page. Done.
 5. Activities list and detail, with the route drawn as a line without a map.
 
 ## Deferred on purpose

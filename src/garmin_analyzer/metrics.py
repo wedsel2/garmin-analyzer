@@ -15,9 +15,11 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from garmin_analyzer.models import (
     DailySummary,
     HrvSummary,
+    RacePrediction,
     SleepSession,
     TrainingReadiness,
     TrainingStatus,
+    Vo2Max,
 )
 
 
@@ -52,6 +54,21 @@ DAILY_METRICS: dict[str, DailyMetric] = {
     "sleep_light": DailyMetric("Light", "h", SleepSession.light_s, scale=HOURS),
     "sleep_rem": DailyMetric("REM", "h", SleepSession.rem_s, True, HOURS),
     "sleep_awake": DailyMetric("Awake", "h", SleepSession.awake_s, False, HOURS),
+    "chronic_load": DailyMetric("Chronic load", "", TrainingStatus.chronic_load),
+    # Garmin calls acute load optimal from 0.8 to 1.5 times the chronic load.
+    "load_optimal_low": DailyMetric("Optimal from", "", TrainingStatus.chronic_load, scale=0.8),
+    "load_optimal_high": DailyMetric("Optimal to", "", TrainingStatus.chronic_load, scale=1.5),
+    "load_aerobic_low": DailyMetric("Low aerobic", "", TrainingStatus.load_aerobic_low),
+    "load_aerobic_high": DailyMetric("High aerobic", "", TrainingStatus.load_aerobic_high),
+    "load_anaerobic": DailyMetric("Anaerobic", "", TrainingStatus.load_anaerobic),
+    "vo2max_running": DailyMetric("Running", "", Vo2Max.running, True),
+    "vo2max_cycling": DailyMetric("Cycling", "", Vo2Max.cycling, True),
+    "race_5k": DailyMetric("5 km", "s", RacePrediction.time_5k_s, False),
+    "race_10k": DailyMetric("10 km", "s", RacePrediction.time_10k_s, False),
+    "race_half_marathon": DailyMetric(
+        "Half marathon", "s", RacePrediction.time_half_marathon_s, False
+    ),
+    "race_marathon": DailyMetric("Marathon", "s", RacePrediction.time_marathon_s, False),
 }
 
 Series = dict[str, list[float | None]]

@@ -245,7 +245,8 @@ def test_recovery_shows_averages_and_daily_charts_for_four_weeks(
     assert 'aria-current="true">4 weeks' in page
     assert 'aria-current="page">Recovery' in page
     # Nothing was measured for the other charts.
-    assert page.count("No data in this period.") == 2
+    assert page.count('data-chart="trend"') == 1
+    assert page.count('<p class="py-8 text-center text-sm opacity-70">No data in this period.') == 2
     assert 'data-metrics="body_battery_low,body_battery_high"' in page
 
 
