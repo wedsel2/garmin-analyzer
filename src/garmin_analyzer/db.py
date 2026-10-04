@@ -10,6 +10,9 @@ def make_engine(url: str | None = None) -> Engine:
     return create_engine(
         url or database_url(),
         pool_pre_ping=True,
+        # Statement values can be health data or tokens; keep them out of
+        # error messages and so out of the logs.
+        hide_parameters=True,
         connect_args={"connect_timeout": 5},
     )
 

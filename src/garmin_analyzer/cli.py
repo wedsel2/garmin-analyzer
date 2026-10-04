@@ -3,6 +3,7 @@
 import argparse
 import getpass
 import os
+import signal
 import sys
 import traceback
 from collections.abc import Callable, Sequence
@@ -11,6 +12,7 @@ from datetime import date, timedelta
 import uvicorn
 from sqlalchemy import Engine, select, text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from garmin_analyzer import migrate
 from garmin_analyzer.collector import collect_user
@@ -29,6 +31,7 @@ from garmin_analyzer.passwords import PasswordError
 from garmin_analyzer.tokens import TokenCipher, TokenDecryptError, generate_key
 from garmin_analyzer.users import UserError, add_user, find_user, set_password
 from garmin_analyzer.web.app import create_app
+from garmin_analyzer.worker import run_forever
 
 DEFAULT_DAYS = 3
 SCHEMA_BEHIND = "database schema is not up to date, run: garmin-analyzer migrate"
@@ -129,32 +132,65 @@ def collect(engine: Engine, args: argparse.Namespace) -> int:
                 )
             )
         for user in users:
-            try:
-                result = collect_user(session, user.id, cipher, since, today, args.pause)
-            except (NotLinked, RelinkRequired, GarminError, TokenDecryptError) as error:
-                print(f"{user.email}: {error}", file=sys.stderr)
-                failed = True
-                continue
-            except AlreadySyncing:
-                print(f"{user.email}: skipped, another sync is running", file=sys.stderr)
-                continue
-            except Exception as error:
-                # Whatever went wrong for this user, the others are still synced.
-                traceback.print_exc()
-                print(f"{user.email}: {type(error).__name__}: {error}", file=sys.stderr)
-                session.rollback()
-                failed = True
-                continue
-            print(
-                f"{user.email}: {result.since or since} to {today}, {result.calls} requests, "
-                f"{result.rows} rows, {len(result.errors)} failed requests"
-            )
-            for failure in result.errors:
-                print(f"  failed: {failure}", file=sys.stderr)
-            if result.stopped:
-                print(f"  stopped early: {result.stopped}", file=sys.stderr)
+            if not sync_and_report(session, user, cipher, since, today, args.pause):
                 failed = True
     return 1 if failed else 0
+
+
+def sync_and_report(
+    session: Session, user: User, cipher: TokenCipher, since: date, today: date, pause: float
+) -> bool:
+    """Sync one user and print how it went. False when the sync failed or stopped early."""
+    try:
+        result = collect_user(session, user.id, cipher, since, today, pause)
+    except (NotLinked, RelinkRequired, GarminError, TokenDecryptError) as error:
+        print(f"{user.email}: {error}", file=sys.stderr)
+        return False
+    except AlreadySyncing:
+        print(f"{user.email}: skipped, another sync is running", file=sys.stderr)
+        return True
+    except Exception as error:
+        # Whatever went wrong for this user, the others are still synced.
+        traceback.print_exc()
+        print(f"{user.email}: {type(error).__name__}: {error}", file=sys.stderr)
+        session.rollback()
+        return False
+    print(
+        f"{user.email}: {result.since or since} to {today}, {result.calls} requests, "
+        f"{result.rows} rows, {len(result.errors)} failed requests"
+    )
+    for failure in result.errors:
+        print(f"  failed: {failure}", file=sys.stderr)
+    if result.stopped:
+        print(f"  stopped early: {result.stopped}", file=sys.stderr)
+        return False
+    return True
+
+
+def stop_worker(signum: int, frame: object) -> None:
+    # Ends the process the way Ctrl-C does: a sync in progress keeps what it
+    # fetched and its tokens, and the next start continues from there.
+    raise KeyboardInterrupt
+
+
+def worker(engine: Engine, args: argparse.Namespace) -> int:
+    """Sync every linked user, again and again, until stopped."""
+    cipher = TokenCipher(token_encryption_key())
+    # As the main process of a container, Python ignores a stop request
+    # unless it is handled.
+    signal.signal(signal.SIGTERM, stop_worker)
+
+    def sync_one(session: Session, user: User) -> bool:
+        today = date.today()
+        since = today - timedelta(days=args.days - 1)
+        return sync_and_report(session, user, cipher, since, today, args.pause)
+
+    print(f"worker started: every linked user is synced once per {args.interval} minutes")
+    try:
+        run_forever(engine, sync_one, timedelta(minutes=args.interval))
+    except KeyboardInterrupt:
+        print("worker stopped")
+    return 0
 
 
 Handler = Callable[[Engine, argparse.Namespace], int]
@@ -209,6 +245,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--since", type=date.fromisoformat, help="first day to fetch, as YYYY-MM-DD"
     )
     collector.add_argument(
+        "--pause", type=pause_seconds, default=1.0, help="seconds between requests (default: 1)"
+    )
+    scheduled = add("worker", worker, "sync every linked user at an interval, until stopped")
+    scheduled.add_argument(
+        "--interval",
+        type=positive_int,
+        default=60,
+        help="minutes between syncs of one user (default: 60)",
+    )
+    scheduled.add_argument(
+        "--days", type=positive_int, default=DEFAULT_DAYS, help="days back from today (default: 3)"
+    )
+    scheduled.add_argument(
         "--pause", type=pause_seconds, default=1.0, help="seconds between requests (default: 1)"
     )
     return parser

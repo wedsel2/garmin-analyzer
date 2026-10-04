@@ -1,6 +1,7 @@
 """Tests for the user, link and collect commands. Garmin is replaced by a fake."""
 
-from datetime import date
+import signal
+from datetime import date, timedelta
 from typing import Any
 
 import pytest
@@ -370,3 +371,47 @@ def test_user_password_needs_an_existing_user(
 ) -> None:
     assert cli.main(["user-password", "nobody@example.com"]) == 1
     assert "no user with email nobody@example.com" in capsys.readouterr().err
+
+
+def test_worker_syncs_with_its_options_until_it_is_stopped(
+    linked_users: None,
+    collected: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    handlers: dict[int, Any] = {}
+    monkeypatch.setattr("signal.signal", lambda number, handler: handlers.update({number: handler}))
+
+    def run_forever(engine: Engine, sync_one: Any, interval: timedelta) -> None:
+        assert interval == timedelta(minutes=30)
+        with Session(engine) as session:
+            runner = session.scalars(select(User).where(User.email == "runner@example.com")).one()
+            assert sync_one(session, runner) is True
+        # What a stop request does to the running worker.
+        handlers[signal.SIGTERM](signal.SIGTERM, None)
+
+    monkeypatch.setattr(cli, "run_forever", run_forever)
+
+    assert cli.main(["worker", "--interval", "30", "--days", "5", "--pause", "0.2"]) == 0
+
+    today = date.today()
+    assert collected == [
+        {
+            "email": "runner@example.com",
+            "since": today - timedelta(days=4),
+            "today": today,
+            "pause": 0.2,
+        }
+    ]
+    output = capsys.readouterr().out
+    assert "worker started: every linked user is synced once per 30 minutes" in output
+    assert output.endswith("worker stopped\n")
+
+
+def test_worker_needs_the_encryption_key(
+    db: Engine, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("TOKEN_ENCRYPTION_KEY", raising=False)
+
+    assert cli.main(["worker"]) == 2
+    assert "TOKEN_ENCRYPTION_KEY is not set" in capsys.readouterr().err

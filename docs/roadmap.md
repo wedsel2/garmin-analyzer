@@ -9,8 +9,8 @@ intentionally less detailed.
 | 1 | Design | Architecture doc, decision records, Claude configuration | Done |
 | 2 | Garmin spike | Browser-assisted login confirmed, 70 endpoints probed, [findings](garmin-spike.md) written, ADR 9 revised | Done |
 | 3 | Storage and collector | Schema and migrations, raw and normalised layers, synthetic fixtures per metric family, token encryption, and `user-add`, `link` and `collect` from the command line | Done, first live run on 2026-10-03 |
-| 4 | Web foundation | `serve`, accounts, invites, Garmin link flow, base layout and styling, and a scheduled worker that runs `collect` | In progress: `serve`, first-account setup, sign-in, layout and styling, invites and user management, and linking Garmin in the browser are done; the scheduled worker remains |
-| 5 | Dashboards | Overview plus pages per metric family, date range selection | |
+| 4 | Web foundation | `serve`, accounts, invites, Garmin link flow, base layout and styling, and a scheduled worker that runs `collect` | Done |
+| 5 | Dashboards | Overview plus pages per metric family, date range selection | Next |
 | 6 | Publish | Tunnel hostname, Cloudflare Access, installable on Android, self-hosting guide | |
 | 7 | Goals | Goal management per user | |
 | 8 | AI analysis | Claude-based analysis and training recommendations | |
@@ -54,5 +54,3 @@ coincidence. Pick one up when it shows in real data.
 - **`link` holds the sync lock while it waits for the pasted address**, so a
   prompt left open makes syncs skip that user. Linking in the browser takes the
   lock only for the ticket exchange.
-- **Database errors print statement values**, which can include health data.
-  Fine on a terminal; to be handled before the worker writes logs elsewhere.
