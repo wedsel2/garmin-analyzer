@@ -45,7 +45,8 @@
       ? "no data"
       : `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}${unit ? ` ${unit}` : ""}`;
 
-  // One request per address, however many charts read from it.
+  // One request per address, however many charts read from it. Kept for one
+  // round of drawing, so a page that stays open does not show old values.
   const requests = new Map();
   const load = (src) => {
     if (!requests.has(src)) {
@@ -359,6 +360,7 @@
   }
 
   function drawAll() {
+    requests.clear();
     // Charts of elements that a swap of the page took away.
     for (const [element, chart] of charts) {
       if (!element.isConnected) {

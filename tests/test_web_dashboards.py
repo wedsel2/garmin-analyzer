@@ -219,6 +219,14 @@ def test_dashboards_need_a_signed_in_user(db: Engine, path: str) -> None:
     assert "resting" not in response.text.lower()
 
 
+def test_a_period_asked_for_by_htmx_without_a_session_leads_to_signing_in(db: Engine) -> None:
+    make_user(db, EMAIL)
+    with TestClient(create_app(db, CIPHER), follow_redirects=False) as anonymous:
+        response = anonymous.get("/recovery", headers={"HX-Request": "true"})
+
+    assert (response.status_code, response.headers["hx-redirect"]) == (204, "/login")
+
+
 def test_recovery_shows_averages_and_daily_charts_for_four_weeks(
     client: TestClient, db: Engine, user: User
 ) -> None:

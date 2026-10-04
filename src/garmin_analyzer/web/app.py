@@ -225,6 +225,10 @@ def logout(request: Request, db: Db) -> Response:
 
 
 def to_sign_in(request: Request, error: Exception) -> Response:
+    if "hx-request" in request.headers:
+        # HTMX would put the sign-in page where part of a page was asked for;
+        # this makes it load that page instead.
+        return Response(status_code=204, headers={"HX-Redirect": "/login"})
     return redirect("/login")
 
 
