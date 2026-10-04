@@ -94,9 +94,11 @@ other if you can: the dump holds everyone's health data and the encrypted
 Garmin access, and `.env` holds the key to that access. Without the key the
 data is still there, but every user has to link Garmin again.
 
-To restore on a new machine, install as above with the `.env` you kept, then:
+To restore, on a new machine or over what is there, put `compose.yaml` and the
+`.env` you kept in place, then:
 
 ```bash
+docker compose stop web worker
 docker compose up --detach --wait db
 docker compose exec -T db pg_restore -U garmin -d garmin --clean --if-exists < garmin.dump
 docker compose up --detach
@@ -156,8 +158,9 @@ say what to make and not where to click.
 1. **A hostname on the tunnel.** Add a public hostname to your tunnel, for
    example `garmin.example.com`, with as its service `http://` followed by the
    address and port where `cloudflared` reaches the web interface. When
-   `cloudflared` runs on the same machine that is `http://localhost:8000`. When
-   it runs on another machine, set `WEB_BIND` to an address of this machine
+   `cloudflared` runs on the same machine, and not in a container, that is
+   `http://localhost:8000`. When it runs in a container or on another machine,
+   `localhost` is not this machine: set `WEB_BIND` to an address of this machine
    that the other one can reach, and use that. Leave the host header as it is:
    the instance needs to see the public hostname.
 
@@ -176,7 +179,8 @@ say what to make and not where to click.
    ```
 
    When the instance does not trust the proxy, a line names the address the
-   request came from. Put that address in `.env` and start again:
+   request came from. Put that address in `.env`, for example as below, and
+   run `docker compose up --detach` again:
 
    ```bash
    FORWARDED_ALLOW_IPS=172.18.0.1
@@ -197,8 +201,8 @@ say what to make and not where to click.
    forwarded headers should appear in the log, and a link made on the Users
    page should start with `https://` and your hostname.
 
-Visitors who reach the port directly, at home, do not pass Access. That is
-their sign-in to the instance and nothing else.
+Visitors who reach the port directly, at home, do not pass Access. For them
+only the sign-in of the instance applies.
 
 ## Install it on Android
 
