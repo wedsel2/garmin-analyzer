@@ -4,7 +4,6 @@ See ADR 8 for accounts and ADR 15 for how sessions and forms are protected.
 """
 
 from contextlib import suppress
-from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import urlsplit
 
@@ -30,7 +29,7 @@ from garmin_analyzer.ratelimit import FailureLimiter
 from garmin_analyzer.sessions import end_session
 from garmin_analyzer.tokens import TokenCipher
 from garmin_analyzer.users import UserError, add_user, normalise_email, set_password
-from garmin_analyzer.web import accounts, api, garmin_link, overview
+from garmin_analyzer.web import accounts, api, dashboards, garmin_link, overview, shared
 from garmin_analyzer.web.shared import (
     COOKIE,
     HERE,
@@ -110,8 +109,7 @@ def healthz(db: Db) -> PlainTextResponse:
 @router.get("/")
 def home(request: Request, db: Db, user: CurrentUser) -> Response:
     link = db.get(GarminLink, user.id)
-    # The day by the server's clock, as the collector has it.
-    today = datetime.now(UTC).date()
+    today = shared.today()
     return templates.TemplateResponse(
         request,
         "home.html",
@@ -256,5 +254,6 @@ def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
     app.include_router(router, include_in_schema=False)
     app.include_router(accounts.router, include_in_schema=False)
     app.include_router(garmin_link.router, include_in_schema=False)
+    app.include_router(dashboards.router, include_in_schema=False)
     app.include_router(api.router)
     return app

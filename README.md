@@ -60,7 +60,8 @@ docker compose build && scripts/smoke-test.sh
 The stylesheet is compiled and the chart library fetched in the image build. To
 see styled pages with charts from `uv run garmin-analyzer serve`, run
 `scripts/build-static.sh` once and again after changing a template; it writes
-the git-ignored `static/app.css` and `static/echarts.min.js`.
+the git-ignored `static/app.css`, `static/echarts.min.js` and
+`static/htmx.min.js`.
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/):
 `fix:` produces a patch release, `feat:` a minor one.

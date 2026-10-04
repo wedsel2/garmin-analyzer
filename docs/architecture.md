@@ -53,8 +53,8 @@ standalone Tailwind binary during the image build. See [ADR 7](adr/0007-web-app-
 
 The build stage fetches the Tailwind binary and the DaisyUI plugin from their
 GitHub releases at a pinned version and checksum, and compiles `styles/app.css`
-against the templates. It fetches ECharts the same way. None of these files is
-in the repository ([ADR 19](adr/0019-chart-library-fetched-in-the-image-build.md)).
+against the templates. It fetches ECharts and HTMX the same way. None of these
+files is in the repository ([ADR 19](adr/0019-chart-library-fetched-in-the-image-build.md)).
 The pages follow the light or dark setting of the device.
 
 ### Dashboards
@@ -66,10 +66,21 @@ uses the session cookie, and returns daily metrics as columns: a list of dates
 and a list of values per metric, `null` where a day has none. The metrics are
 listed in `metrics.py`. See [ADR 18](adr/0018-series-api-for-charts.md).
 
-So far there is the **overview**: per main metric the latest value, Garmin's
-word for it, how it compares with the average of the 4 weeks before, and a
-trend line of those weeks; below that the most recent activities. Pages per
-metric family, the day view and activities follow.
+The **overview** shows per main metric the latest value, Garmin's word for it,
+how it compares with the average of the 4 weeks before, and a trend line of
+those weeks; below that the most recent activities.
+
+**Recovery** (resting heart rate, HRV against Garmin's balanced range, stress,
+body battery) and **Sleep** (stages, score, bed and wake times) show a period
+the user picks: 7 days, 4 weeks, 3 months, 1 year or everything. Up to 3 months
+a chart has a point per day and a 7-day average; longer periods show an average
+per week. Both averages are computed on the server (`/api/v1/daily?rolling=`,
+`/api/v1/weekly`). Bed and wake times come as moments (`/api/v1/nights`) and
+are drawn in the time zone of the device, which the server does not know.
+Picking a period fetches the page again through HTMX and replaces only the
+dashboard; without scripts the same links load the whole page.
+
+The day view, training and activities follow.
 
 ## Users and access
 

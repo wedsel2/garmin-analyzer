@@ -23,7 +23,7 @@ and the first live collection.
 ## Phase 5 order
 
 1. Series API, chart script and the overview. Done.
-2. Recovery and sleep pages, with date range selection.
+2. Recovery and sleep pages, with a period to pick. Done.
 3. Day view: intraday heart rate, stress, body battery, steps and respiration
    on one time axis, bucketed on the server.
 4. Training page.

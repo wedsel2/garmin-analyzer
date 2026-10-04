@@ -1,0 +1,5 @@
+{# For the head of a page with charts. HTMX may not add styles or evaluate text: the content security policy refuses both. Going back loads the page again, so its charts are drawn again. #}
+<meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
+<script src="/static/htmx.min.js" defer></script>
+<script src="/static/echarts.min.js" defer></script>
+<script src="/static/charts.js" defer></script>

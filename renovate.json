@@ -22,7 +22,7 @@
     },
     {
       "description": "The Containerfile pins a checksum for these, which has to be updated by hand.",
-      "matchPackageNames": ["tailwindlabs/tailwindcss", "saadeghi/daisyui", "echarts"],
+      "matchPackageNames": ["tailwindlabs/tailwindcss", "saadeghi/daisyui", "echarts", "htmx.org"],
       "automerge": false
     }
   ]
