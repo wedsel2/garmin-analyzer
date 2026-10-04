@@ -1,0 +1,40 @@
+{# The events in `events`: to come, with Garmin's prediction, or past, with the activity of that day. #}
+<ul class="divide-y divide-base-200">
+  {% for item in events %}
+  {% set event = item.event %}
+  <li class="flex flex-col gap-1 py-3">
+    <div class="flex flex-wrap items-baseline justify-between gap-x-4">
+      <a class="link link-hover font-medium" href="/goals/events/{{ event.id }}">{{ event.name }}</a>
+      {% if item.days_to_go >= 0 %}<span class="text-sm">{{ item.countdown }}</span>{% endif %}
+    </div>
+    <p class="text-sm opacity-70">
+      <time datetime="{{ event.event_date }}">{{ long_date(event.event_date) }}</time>
+      {%- if event.sport %} · {{ event.sport|capitalize }}{% endif %}
+      {%- if event.distance_m %} · {{ "%g"|format(event.distance_m / 1000) }} km{% endif %}
+      {%- if event.target_time_s %} · target {{ event.target_time_s|duration }}
+      {%- if item.target_speed_mps %} ({{ tempo(event.sport, item.target_speed_mps) }}){% endif %}
+      {%- endif %}
+    </p>
+    {% if item.predicted_s is not none %}
+    <p class="text-sm">
+      Garmin predicts {{ item.predicted_s|duration }}
+      {%- if item.predicted_behind_s is none %}.
+      {%- elif item.predicted_behind_s == 0 %}, right on your target.
+      {%- elif item.predicted_behind_s > 0 %}, <span class="text-error">{{ item.predicted_behind_s|duration }} slower</span> than your target.
+      {%- else %}, <span class="text-success">{{ item.predicted_behind_s|abs|duration }} faster</span> than your target.
+      {%- endif %}
+    </p>
+    {% endif %}
+    {% if item.result is not none %}
+    <p class="text-sm">
+      That day:
+      <a class="link link-hover" href="/activities/{{ item.result.activity_id }}">
+        {{- item.result.name or "Activity" -}}
+      </a>
+      {%- if item.result.distance_m %}, {{ item.result.distance_m|kilometres }}{% endif %}
+      {%- if item.result.duration_s %} in {{ item.result.duration_s|duration }}{% endif %}
+    </p>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>

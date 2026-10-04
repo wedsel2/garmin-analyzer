@@ -1,0 +1,24 @@
+{# The weekly goals in `progress`, each with this week so far and the weeks before. #}
+<ul class="divide-y divide-base-200">
+  {% for item in progress %}
+  <li class="flex flex-col gap-1 py-3">
+    <div class="flex flex-wrap items-baseline justify-between gap-x-4">
+      <a class="link link-hover font-medium" href="/goals/weekly/{{ item.goal.id }}">{{ item.title|capitalize }}</a>
+      <span class="text-sm tabular-nums">
+        {{ item.done }} this week
+        {% if item.met %}<span class="badge badge-success badge-sm">Reached</span>{% endif %}
+      </span>
+    </div>
+    <progress class="progress {{ 'progress-success' if item.met else 'progress-primary' }} w-full"
+              value="{{ item.share }}" max="100" aria-label="{{ item.title|capitalize }}, this week"></progress>
+    <p class="flex items-center gap-2 text-sm opacity-70">
+      Reached in {{ item.weeks_reached }} of the {{ weeks_back }} weeks before
+      <span class="inline-flex gap-0.5" aria-hidden="true">
+        {% for met in item.weeks_met %}
+        <span class="inline-block size-2.5 rounded-sm {{ 'bg-success' if met else 'bg-base-content/20' }}"></span>
+        {% endfor %}
+      </span>
+    </p>
+  </li>
+  {% endfor %}
+</ul>

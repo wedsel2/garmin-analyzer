@@ -58,6 +58,19 @@
   {% endfor %}
 </div>
 
+{% if progress or upcoming %}
+<section class="card mt-6 bg-base-100 shadow-sm">
+  <div class="card-body p-4">
+    <div class="flex items-center justify-between">
+      <h2 class="card-title">Goals</h2>
+      <a class="link link-hover text-sm" href="/goals">All goals</a>
+    </div>
+    {% if progress %}{% include "_weekly_goals.html" %}{% endif %}
+    {% if upcoming %}{% with events = upcoming %}{% include "_goal_events.html" %}{% endwith %}{% endif %}
+  </div>
+</section>
+{% endif %}
+
 <section class="card mt-6 bg-base-100 shadow-sm">
   <div class="card-body p-4">
     <div class="flex items-center justify-between">
