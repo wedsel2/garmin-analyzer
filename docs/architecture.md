@@ -260,7 +260,8 @@ Reference deployment, see [ADR 11](adr/0011-compose-deployment-behind-cloudflare
 - Configuration through a `.env` file: database password, token encryption key,
   and where the web interface listens.
 - Published through an existing Cloudflare tunnel as its own hostname, with
-  Cloudflare Access in front. Home Assistant can link to it but not show it in
+  Cloudflare Access in front. The tunnel runs in the Cloudflared add-on of Home
+  Assistant, on another machine, and reaches the web service over the network. Home Assistant can link to it but not show it in
   a panel, as pages may not be framed ([ADR 15](adr/0015-sessions-forms-and-sign-in-limits.md)).
 - The steps are in the [self-hosting guide](self-hosting.md).
 

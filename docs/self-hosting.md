@@ -141,6 +141,10 @@ from other devices at home, set in `.env`:
 WEB_BIND=0.0.0.0:8000
 ```
 
+The number after the colon is the port on your machine. When 8000 is taken,
+choose another one, such as `0.0.0.0:8010`; nothing else changes, and the
+addresses below get that port.
+
 That is plain HTTP, which is fine for looking around at home but has two
 limits. Passwords cross your network unencrypted. And browsers only install a
 site as an app, and only run its offline page, over HTTPS. For both, publish
@@ -152,25 +156,35 @@ The reference setup ([ADR 11](adr/0011-compose-deployment-behind-cloudflare-tunn
 is a hostname on a Cloudflare tunnel, with Cloudflare Access in front. Nothing
 is opened on your router. Any other reverse proxy that provides HTTPS works the
 same way as far as the instance is concerned; only the first two steps differ.
+One tunnel serves several hostnames, so an existing one will do.
 The names of pages in Cloudflare's dashboard change now and then, so the steps
 say what to make and not where to click.
 
-1. **A hostname on the tunnel.** Add a public hostname to your tunnel, for
-   example `garmin.example.com`, with as its service `http://` followed by the
-   address and port where `cloudflared` reaches the web interface. When
-   `cloudflared` runs on the same machine, and not in a container, that is
-   `http://localhost:8000`. When it runs in a container or on another machine,
-   `localhost` is not this machine: set `WEB_BIND` to an address of this machine
-   that the other one can reach, and use that. Leave the host header as it is:
-   the instance needs to see the public hostname.
+1. **Access in front of it.** Before the hostname exists, add a self-hosted
+   Access application for it, for example `garmin.example.com`, and attach a
+   policy that allows the email addresses of you and your users. Made in this
+   order, the sign-in page of the instance is never open to the internet. A
+   visitor passes Cloudflare's check first and then signs in to the instance:
+   two steps, on purpose, as Access keeps strangers away from the instance
+   altogether and the instance decides whose data someone sees.
 
-2. **Access in front of it.** Before anyone visits the hostname, add a
-   self-hosted Access application for it with a policy that allows the email
-   addresses of you and your users. Without it the sign-in page of the instance
-   is open to the internet. With it, a visitor passes Cloudflare's check first
-   and then signs in to the instance: two steps, on purpose, as Access keeps
-   strangers away from the instance altogether and the instance decides whose
-   data someone sees.
+   Make the application for this one hostname, not for a wildcard or the whole
+   domain: an app that cannot show Cloudflare's sign-in screen, such as the one
+   of Home Assistant, stops working behind Access. When you invite someone
+   later, add their address to the policy too, or Cloudflare stops them before
+   they reach their invite.
+
+2. **A hostname on the tunnel.** Add the public hostname to your tunnel, with
+   as its service `http://` followed by the address and port where
+   `cloudflared` reaches the web interface. When `cloudflared` runs on the same
+   machine, and not in a container, that is `http://localhost:8000`. When it
+   runs in a container or on another machine, such as the Cloudflared add-on of
+   Home Assistant, `localhost` is not this machine: set `WEB_BIND` to an
+   address of this machine that the other one can reach, and use that. Leave
+   the host header as it is: the instance needs to see the public hostname.
+
+   Open the hostname in a private window. Cloudflare's screen should come
+   before the sign-in page of the instance.
 
 3. **Trust the proxy.** Open the hostname once and look at the log:
 
@@ -186,9 +200,9 @@ say what to make and not where to click.
    FORWARDED_ALLOW_IPS=172.18.0.1
    ```
 
-   The address is the one Docker passes on. That is usually the address of the
-   machine `cloudflared` runs on, or the gateway of the Docker network when it
-   runs on the same machine. Until this is set the session cookie is not marked
+   The address is the one Docker passes on. On a Linux host with `cloudflared`
+   on another machine it is the address of that machine. With `cloudflared` on
+   the same machine it is usually the gateway of the Docker network. Until this is set the session cookie is not marked
    `Secure`, links to set a password do not use HTTPS, and failed sign-ins of
    all users are counted together.
 
@@ -211,11 +225,11 @@ then **Install** in the menu. The site then opens in a window of its own. It
 needs a connection: without one it shows a page that says so. Nothing of your
 data is kept on the phone.
 
-When Chrome only offers a shortcut and not an install, Cloudflare Access is
-most likely keeping Chrome from the icons. Add a second Access application for
-the same hostname with the path `static/icon-*` and a policy of the kind
-**Bypass** for everyone. Those files are the same for every instance and hold
-no data.
+This works with Cloudflare Access in front and needs nothing extra there.
+Should Chrome offer only a shortcut and not an install, check whether Access
+keeps it from the icons: a second Access application for the same hostname with
+the path `static/icon-*` and a policy of the kind **Bypass** for everyone lets
+them through. Those files are the same for every instance and hold no data.
 
 ## What it cannot do
 
