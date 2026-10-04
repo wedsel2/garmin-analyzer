@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Ask Claude yourself{% endblock %}
+{% block scripts %}<script src="/static/coach.js" defer></script>{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-2xl font-semibold">Ask Claude yourself</h1>
+<section class="card bg-base-100 shadow-sm">
+  <div class="card-body">
+    {% if text is none %}
+    <p class="opacity-70">Nothing has been collected from Garmin yet, so there is nothing to take along.</p>
+    {% else %}
+    <p>Copy the text below and paste it into a chat with Claude, or with another AI model you trust
+       with it. It asks for the same as a report here: how you are doing and what to do in the coming
+       week. In a chat you can go on asking.</p>
+    <p class="text-sm opacity-70">This instance sends nothing: the text goes where you paste it. It holds
+       your figures of the last {{ days }} days and the {{ weeks }} weeks before, your activities as
+       figures, and your goals with the names and notes of your events. It does not hold your name,
+       your email address, the names of activities, places or routes.</p>
+    <div class="flex flex-wrap items-center gap-2">
+      {# coach.js makes this button work; without scripts the text can be selected or saved. #}
+      <button class="btn btn-primary" type="button" data-copy="figures" hidden>Copy the text</button>
+      <a class="btn" href="/coach/figures.txt">Save as a file</a>
+      <a class="btn btn-ghost" href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Open Claude</a>
+      <span class="text-sm" role="status" data-copied hidden>Copied.</span>
+    </div>
+    <label class="label mt-2" for="figures">The text</label>
+    <textarea class="textarea h-96 w-full font-mono text-xs" id="figures" readonly>{{ text }}</textarea>
+    {% endif %}
+    <div class="card-actions mt-2">
+      <a class="btn btn-sm" href="/coach">Back to the coach</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -3,8 +3,9 @@
 Collects Garmin metrics into PostgreSQL so they can be visualised and analysed.
 
 > Status: accounts, invites, linking Garmin, automatic collection and the
-> dashboards and goals work, and the site can be installed as an app on
-> Android. AI-based analysis comes later; see the [roadmap](docs/roadmap.md).
+> dashboards and goals work, the site can be installed as an app on Android,
+> and a coach (Claude) writes reports for users who turn it on; see the
+> [roadmap](docs/roadmap.md).
 
 To run your own instance from a released image, and to publish it, follow the
 [self-hosting guide](docs/self-hosting.md). What follows is the short version,

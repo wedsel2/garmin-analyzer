@@ -1,7 +1,7 @@
 # garmin-analyzer
 
-Self-hosted, multi-user web app that collects Garmin metrics into PostgreSQL and
-visualises them. Planned later: goals and AI-based training recommendations.
+Self-hosted, multi-user web app that collects Garmin metrics into PostgreSQL,
+visualises them, keeps goals and has Claude write training advice.
 
 Read before designing anything:
 
@@ -70,6 +70,12 @@ Before telling the user a pull request is ready to merge:
   The script also writes `.garmin-tokens/stats/<endpoint>.json` with the range and
   distinct codes of each number series; read that, not the samples, to learn
   units, codes and "not measured" sentinels such as -1 and -2.
+- **Only `claude.py` imports the Anthropic library**, and nothing reaches it for
+  a user who has not turned the coach on. What is sent is put together in
+  `coach.figures`; changing it means changing the list on the Coach page and a
+  decision record (ADR 21). Never log the figures or an API key.
+- **Never call Anthropic from tests or CI.** Tests replace the writer or give the
+  library a transport that answers locally.
 - **This repository is public.** Never commit or log Garmin credentials, tokens,
   `.env`, or real health data. `.garmin-tokens/` is local only.
 - **Every table that holds user data has a `user_id`**, and every query filters on it.

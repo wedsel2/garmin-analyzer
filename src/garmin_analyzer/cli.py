@@ -14,7 +14,7 @@ from sqlalchemy import Engine, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from garmin_analyzer import migrate
+from garmin_analyzer import coach, config, migrate
 from garmin_analyzer.collector import collect_user
 from garmin_analyzer.config import ConfigError, token_encryption_key
 from garmin_analyzer.db import make_engine, make_session_factory
@@ -80,10 +80,18 @@ def serve(engine: Engine, args: argparse.Namespace) -> int:
     """Bring the schema up to date and run the web interface."""
     # Asked for first: without the key nobody can link Garmin.
     cipher = TokenCipher(token_encryption_key())
+    coach_config = coach.Config(
+        config.anthropic_api_key(), config.coach_model(), config.coach_reports_per_day()
+    )
     migrate.upgrade(engine)
     # Addresses of proxies whose forwarded headers are trusted come from
     # FORWARDED_ALLOW_IPS, which uvicorn reads itself.
-    uvicorn.run(create_app(engine, cipher), host=args.host, port=args.port, proxy_headers=True)
+    uvicorn.run(
+        create_app(engine, cipher, coach_config),
+        host=args.host,
+        port=args.port,
+        proxy_headers=True,
+    )
     return 0
 
 

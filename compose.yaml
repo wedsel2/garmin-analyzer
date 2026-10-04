@@ -24,6 +24,9 @@ services:
       DATABASE_URL: postgresql://garmin:${POSTGRES_PASSWORD}@db:5432/garmin
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
       FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COACH_MODEL: ${COACH_MODEL:-}
+      COACH_REPORTS_PER_DAY: ${COACH_REPORTS_PER_DAY:-}
     ports:
       # Reachable from this machine only, unless WEB_BIND says otherwise.
       - "${WEB_BIND:-127.0.0.1:8000}:8000"

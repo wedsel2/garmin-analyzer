@@ -3,16 +3,16 @@
 Target design. What exists today is the pipeline, the database schema, the
 collector, the scheduled worker, and the foundation of the web interface:
 setting up the first account, signing in, inviting and managing users, linking
-Garmin, the base layout and styling, the dashboards and goals. See the [roadmap](roadmap.md) for
+Garmin, the base layout and styling, the dashboards, goals and the coach. See the [roadmap](roadmap.md) for
 the order of work and the [decision records](adr/README.md) for the reasoning.
 
 ## Goal
 
 A self-hosted web app where a small group (the owner and friends) can each link
 a Garmin account, have all available metrics collected automatically, and explore
-them in a clean web interface that also installs as an app on Android. Later:
-goals and AI-based training recommendations. Others should be able to self-host
-their own instance with little effort.
+them in a clean web interface that also installs as an app on Android, set
+goals, and have Claude write training advice from both. Others should be able
+to self-host their own instance with little effort.
 
 ## Components
 
@@ -31,13 +31,15 @@ their own instance with little effort.
         └───────────────│──────────────────────────────────────────┘
                         ▼
                  Garmin Connect (unofficial API)
+
+        web ──► Claude API (Anthropic)      only for a user who turned the coach on
 ```
 
 | Component | Responsibility |
 |---|---|
-| **web** | Login, user and invite management, Garmin link flow, dashboards, goals, JSON API |
+| **web** | Login, user and invite management, Garmin link flow, dashboards, goals, the coach, JSON API |
 | **worker** | Backfill on link, then incremental sync per user; rate-limited and resumable |
-| **PostgreSQL** | Users, encrypted Garmin tokens, raw payloads, normalised metrics, goals |
+| **PostgreSQL** | Users, encrypted Garmin tokens, raw payloads, normalised metrics, goals, coach reports |
 
 `web` and `worker` are the same image started with different commands, so there
 is one artifact to build, scan and release.
@@ -151,6 +153,29 @@ apart: a trail run counts as running. Progress is not stored but worked out
 from the activities when a page asks, with weeks from Monday to Sunday in UTC
 as on the training page. The goal of someone else does not exist for a user.
 See [ADR 20](adr/0020-goals-as-two-tables-progress-computed.md) and `goals.py`.
+
+### Coach
+
+On the **Coach** page a user asks for a report: how recovery and training look,
+how each goal stands, and what to do on each of the coming seven days. Claude
+writes it from the figures of that user. This is the only place where data
+leaves the instance, so it is off until the user turns it on, on a page that
+lists what is sent: daily metrics of 28 days, weekly averages of the 12 weeks
+before, Garmin's latest status and estimates, the activities of 28 days as
+summary figures, and the goals with the names and notes of events. A name, an
+email address, the names of activities, places and positions are never sent.
+`coach.py` puts this together as text, and `claude.py` is the only module that
+talks to Anthropic.
+
+A report is paid for by the key of the instance (`ANTHROPIC_API_KEY`), limited
+per user per day, or by a key the user stored, which is kept encrypted like the
+Garmin tokens. Without either, or instead, a user takes the same text with
+the coaching instructions to a chat with Claude themselves: the page offers
+it to copy or save, and the instance sends nothing. Asking stores the report as
+underway and answers at once; the web service writes it after the request and
+the page asks again until it is there, as writing can take longer than a tunnel
+keeps a request open. The answer has a fixed shape and is shown as text. See
+[ADR 21](adr/0021-coach-reports-by-claude-opt-in.md).
 
 ## Users and access
 
@@ -272,7 +297,8 @@ ox, endurance score, hill score, and lactate threshold heart rate and speed.
   Garmin marks unmeasured points with negative numbers; parsers drop them.
 
 Goals are not derived from Garmin: `goal_events` and `weekly_goals` hold what
-the user entered.
+the user entered. `coach_settings` holds whether a user turned the coach on and
+their own API key, encrypted; `coach_reports` holds what Claude wrote.
 
 Schema changes are Alembic migrations, applied on start-up of the `web` service.
 The worker starts once `web` is healthy and refuses to run on an older schema.
@@ -283,7 +309,8 @@ Reference deployment, see [ADR 11](adr/0011-compose-deployment-behind-cloudflare
 
 - Docker Compose on a Linux host (the owner runs it in an Ubuntu VM on Proxmox).
 - Configuration through a `.env` file: database password, token encryption key,
-  and where the web interface listens.
+  where the web interface listens, and optionally an Anthropic API key for the
+  coach.
 - Published through an existing Cloudflare tunnel as its own hostname, with
   Cloudflare Access in front. The tunnel runs in the Cloudflared add-on of Home
   Assistant, on another machine, and reaches the web service over the network. Home Assistant can link to it but not show it in
@@ -297,8 +324,3 @@ is. From these follow the `Secure` mark on the session cookie, the address in
 links to set a password, and the address that failed sign-ins are counted for.
 When a request has forwarded headers from a proxy that is not in that list, the
 web service names the address of that proxy in its log, once per address.
-
-## Later
-
-- **AI analysis**: the Claude API reads normalised metrics and goals and writes
-  recommendations; needs its own decision record (data sent, cost, consent).

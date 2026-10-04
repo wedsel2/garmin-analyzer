@@ -18,6 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.middleware.base import RequestResponseEndpoint
 
+from garmin_analyzer import coach
 from garmin_analyzer.db import make_session_factory
 from garmin_analyzer.models import GarminLink, User
 from garmin_analyzer.passwords import (
@@ -35,6 +36,7 @@ from garmin_analyzer.web import (
     accounts,
     activity_pages,
     api,
+    coach_pages,
     dashboards,
     garmin_link,
     goal_pages,
@@ -305,7 +307,9 @@ def to_sign_in(request: Request, error: Exception) -> Response:
     return redirect("/login")
 
 
-def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
+def create_app(
+    engine: Engine, cipher: TokenCipher, coach_config: coach.Config | None = None
+) -> FastAPI:
     # The description of the JSON API is served; the pages that render it are not,
     # as they load scripts from elsewhere.
     app = FastAPI(
@@ -316,6 +320,7 @@ def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
     )
     app.state.sessions = make_session_factory(engine)
     app.state.cipher = cipher
+    app.state.coach = coach_config or coach.Config()
     app.state.link_attempts = FailureLimiter(
         garmin_link.LINK_ATTEMPTS, garmin_link.LINK_PERIOD_SECONDS
     )
@@ -335,5 +340,6 @@ def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
     app.include_router(dashboards.router, include_in_schema=False)
     app.include_router(activity_pages.router, include_in_schema=False)
     app.include_router(goal_pages.router, include_in_schema=False)
+    app.include_router(coach_pages.router, include_in_schema=False)
     app.include_router(api.router)
     return app
