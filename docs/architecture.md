@@ -93,7 +93,19 @@ intraday metrics are listed in `intraday.py`.
 Text from the API is put into a tooltip as text, never as markup: the name of
 an activity is whatever the user typed in Garmin Connect.
 
-Training and activities follow.
+**Training** shows, over the period picked: acute and chronic load with the
+range in which acute load is optimal (0.8 to 1.5 times chronic, as Garmin
+defines the ratio), Garmin's 4-week load per intensity, training readiness,
+VO2 max, and hours of activities per week by sport. Next to the charts it
+shows as text what needs no chart: the latest predicted race times with their
+change in the period, and the factors of the latest readiness. A calendar of
+the last year colours each day by its minutes of activities.
+`/api/v1/activity-weeks` and `/api/v1/activity-days` give activity time;
+`training.py` holds what this page reads beyond daily metrics. An activity
+counts on the day it began in UTC, and the legs of a multi-sport activity
+count instead of the whole.
+
+Activities follow.
 
 ## Users and access
 

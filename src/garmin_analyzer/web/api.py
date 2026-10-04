@@ -19,6 +19,7 @@ from garmin_analyzer.intraday import (
 )
 from garmin_analyzer.metrics import DAILY_METRICS, daily_series, rolling_series, weekly_series
 from garmin_analyzer.models import SleepSession
+from garmin_analyzer.training import daily_minutes, weekly_hours
 from garmin_analyzer.web.shared import ApiUser, Db
 
 router = APIRouter(prefix="/api/v1", tags=["series"])
@@ -59,6 +60,13 @@ class Nights(BaseModel):
     dates: list[date]
     start_at: list[datetime | None]
     end_at: list[datetime | None]
+
+
+class ActivityDays(BaseModel):
+    """Minutes of activities per day, null for a day without any."""
+
+    dates: list[date]
+    minutes: list[float | None]
 
 
 class Span(BaseModel):
@@ -142,6 +150,25 @@ def nights(db: Db, user: ApiUser, start: Start, end: End) -> Nights:
         dates=dates,
         start_at=[sleeps[day].start_at if day in sleeps else None for day in dates],
         end_at=[sleeps[day].end_at if day in sleeps else None for day in dates],
+    )
+
+
+@router.get("/activity-weeks")
+def activity_weeks(db: Db, user: ApiUser, start: Start, end: End) -> WeeklySeries:
+    """Hours of activities of the signed-in user per week, by sport.
+
+    The series are named after the sports with the most time, and "Other".
+    """
+    days_between(start, end)
+    mondays, series = weekly_hours(db, user.id, start, end)
+    return WeeklySeries(dates=mondays, series=series)
+
+
+@router.get("/activity-days")
+def activity_days(db: Db, user: ApiUser, start: Start, end: End) -> ActivityDays:
+    """Minutes of activities of the signed-in user per day, by the day in UTC they began."""
+    return ActivityDays(
+        dates=days_between(start, end), minutes=daily_minutes(db, user.id, start, end)
     )
 
 

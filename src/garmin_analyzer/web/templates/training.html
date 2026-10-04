@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block scripts %}{% include "_chart_scripts.html" %}{% endblock %}
+{% block content %}
+{# Picking a period replaces this element with the one of the page asked for. #}
+<div id="dashboard">
+  {% include "_periods.html" %}
+  {% include "_charts.html" %}
+
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    <section class="card bg-base-100 shadow-sm">
+      <div class="card-body gap-2 p-4">
+        <h2 class="card-title text-base">Predicted race times</h2>
+        {% if predictions %}
+        <dl class="grid grid-cols-2 gap-x-6 gap-y-3">
+          {% for prediction in predictions %}
+          <div>
+            <dt class="text-sm opacity-70">{{ prediction.distance }}</dt>
+            <dd>
+              <span class="text-xl font-semibold">{{ prediction.seconds|duration }}</span>
+              <span class="block text-sm">
+                {% if prediction.change == 0 %}
+                <span class="opacity-70">Unchanged</span>
+                {% else %}
+                <span aria-hidden="true" class="{{ 'text-success' if prediction.change < 0 else 'text-error' }}">
+                  {{- "▼" if prediction.change < 0 else "▲" -}}
+                </span>
+                {{ prediction.change|abs|duration }} {{ "faster" if prediction.change < 0 else "slower" }}
+                {% endif %}
+              </span>
+            </dd>
+          </div>
+          {% endfor %}
+        </dl>
+        <p class="text-sm opacity-70">The latest prediction, against the first one in {{ period.label|lower if period.days else "the time collected" }}.</p>
+        {% else %}
+        <p class="py-8 text-center text-sm opacity-70">No data in this period.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card bg-base-100 shadow-sm">
+      <div class="card-body gap-2 p-4">
+        <h2 class="card-title text-base">What readiness is made of</h2>
+        {% if readiness and readiness.factors %}
+        <p>
+          {% if readiness.score is not none %}<span class="text-2xl font-semibold">{{ readiness.score }}</span>{% endif %}
+          <span class="text-sm opacity-70">
+            {{ day_label(readiness.day, today) }}{% if readiness.level %} · {{ phrase(readiness.level) }}{% endif %}
+          </span>
+        </p>
+        <dl class="grid gap-2">
+          {% for name, value in readiness.factors %}
+          <div class="grid grid-cols-[10rem_1fr_3rem] items-center gap-2 text-sm">
+            <dt>{{ name }}</dt>
+            <dd><progress class="progress progress-primary w-full" value="{{ value }}" max="100" aria-label="{{ name }}"></progress></dd>
+            <dd class="text-right tabular-nums">{{ value }}%</dd>
+          </div>
+          {% endfor %}
+        </dl>
+        <p class="text-sm opacity-70">How much each factor helps your readiness: a full bar is as good as it gets.</p>
+        {% else %}
+        <p class="py-8 text-center text-sm opacity-70">No training readiness collected yet.</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <section class="card mt-4 bg-base-100 shadow-sm">
+    <div class="card-body gap-1 p-4">
+      <h2 class="card-title text-base">Active days in the last year</h2>
+      <div class="h-40" role="img" aria-label="Minutes of activities per day in the last year"
+           data-chart="calendar" data-src="{{ calendar_src }}"></div>
+      <p class="py-8 text-center text-sm opacity-70" data-empty hidden>No activities in the last year.</p>
+      <p class="text-sm opacity-70">The colour of a day shows its minutes of activities in four steps: up to 30, up to 60, up to 120, and more.</p>
+    </div>
+  </section>
+</div>
+{% endblock %}

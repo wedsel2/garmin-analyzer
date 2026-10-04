@@ -19,6 +19,7 @@
           text: "#ffffff",
           label: "#c3c2b7",
           series: ["#3987e5", "#d95926", "#199e70", "#c98500"],
+          ramp: ["#184f95", "#256abf", "#3987e5", "#86b6ef"],
         }
       : {
           line: "#9a9993",
@@ -30,6 +31,7 @@
           text: "#0b0b0b",
           label: "#52514e",
           series: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"],
+          ramp: ["#b7d3f6", "#6da7ec", "#2a78d6", "#184f95"],
         };
 
   const format = (options) => new Intl.DateTimeFormat(undefined, options);
@@ -77,7 +79,8 @@
   // a day.
   const frame = (element, data, colour, rows, bars) => {
     const weekly = element.dataset.per === "week";
-    const tick = data.dates.length > 300 || weekly ? longTickFormat : tickFormat;
+    // Months and years once the days no longer tell the points apart.
+    const tick = data.dates.length > (weekly ? 30 : 300) ? longTickFormat : tickFormat;
     return {
       animation: false,
       grid: { left: 4, right: 12, top: 32, bottom: 4, containLabel: true },
@@ -123,6 +126,24 @@
         },
       },
     };
+  };
+
+  // A shaded band between a low and a high value per day, as two stacked lines.
+  const band = (low, high, name, colour) => {
+    const line = { type: "line", stack: "band", symbol: "none", silent: true };
+    return [
+      { ...line, data: low, lineStyle: { opacity: 0 } },
+      {
+        ...line,
+        name,
+        data: high.map((value, index) =>
+          value === null || low[index] === null ? null : value - low[index],
+        ),
+        lineStyle: { opacity: 0 },
+        itemStyle: { color: colour.accent, opacity: 0.25 },
+        areaStyle: { color: colour.accent, opacity: 0.12 },
+      },
+    ];
   };
 
   // Bars that float between a low and a high value, one per day.
@@ -243,24 +264,92 @@
             },
           ]
         : [{ ...line, name: "Weekly average", data: values, symbolSize: 4, showAllSymbol: true }];
-      if (low && high) {
-        const band = { type: "line", stack: "band", symbol: "none", silent: true };
-        option.series.push(
-          { ...band, data: low, lineStyle: { opacity: 0 } },
-          {
-            ...band,
-            name: "Balanced range",
-            data: high.map((value, index) =>
-              value === null || low[index] === null ? null : value - low[index],
-            ),
-            lineStyle: { opacity: 0 },
-            itemStyle: { color: colour.accent, opacity: 0.25 },
-            areaStyle: { color: colour.accent, opacity: 0.12 },
-          },
-        );
-      }
+      if (low && high) option.series.push(...band(low, high, "Balanced range", colour));
       option.legend.data = option.series.filter((series) => series.name).map((series) => series.name);
       return option;
+    },
+
+    // A line per metric, with an optional band behind them. Values that are
+    // days apart, as for VO2 max, are joined.
+    lines(element, data, colour) {
+      const metrics = element.dataset.metrics.split(",");
+      const labels = element.dataset.labels.split(",");
+      const unit = element.dataset.unit;
+      const [bandLow, bandHigh] = (element.dataset.band ?? "").split(",");
+      const low = data.series[bandLow];
+      const high = data.series[bandHigh];
+      if (metrics.every((metric) => data.series[metric].every((value) => value === null))) {
+        return null;
+      }
+      const option = frame(element, data, colour, (index) => [
+        ...metrics.map((metric, at) => `${labels[at]}: ${amount(data.series[metric][index], unit)}`),
+        ...(low && low[index] !== null && high[index] !== null
+          ? [`${element.dataset.bandLabel}: ${Math.round(low[index])} to ${Math.round(high[index])}`]
+          : []),
+      ]);
+      option.series = metrics.map((metric, at) => ({
+        type: "line",
+        name: labels[at],
+        data: data.series[metric],
+        connectNulls: true,
+        symbol: "circle",
+        symbolSize: 3,
+        showAllSymbol: true,
+        lineStyle: { width: 2, color: colour.series[at] },
+        itemStyle: { color: colour.series[at] },
+      }));
+      if (low && high) option.series.push(...band(low, high, element.dataset.bandLabel, colour));
+      option.legend.data = option.series.filter((series) => series.name).map((series) => series.name);
+      return option;
+    },
+
+    // Hours of activities per week, stacked by sport. The sports are the
+    // series of the answer.
+    volume(element, data, colour) {
+      const sports = Object.keys(data.series);
+      if (!sports.length) return null;
+      element.dataset.metrics = sports.join(",");
+      element.dataset.labels = sports.join(",");
+      return builders.stack(element, data, colour);
+    },
+
+    // A square per day of a year, in a stronger colour for more minutes of activities.
+    calendar(element, data, colour) {
+      const days = data.dates
+        .map((day, index) => [day, data.minutes[index]])
+        .filter(([, minutes]) => minutes);
+      if (!days.length) return null;
+      return {
+        animation: false,
+        tooltip: {
+          padding: [4, 8],
+          backgroundColor: colour.tip,
+          borderColor: colour.guide,
+          textStyle: { color: colour.text, fontSize: 12 },
+          formatter: (point) =>
+            tip([`${dayFormat.format(new Date(point.value[0]))}: ${amount(point.value[1], "min")}`]),
+        },
+        visualMap: {
+          show: false,
+          type: "piecewise",
+          pieces: [{ lt: 30 }, { gte: 30, lt: 60 }, { gte: 60, lt: 120 }, { gte: 120 }],
+          inRange: { color: colour.ramp },
+        },
+        calendar: {
+          top: 24,
+          left: 32,
+          right: 4,
+          bottom: 4,
+          cellSize: ["auto", "auto"],
+          range: [data.dates[0], data.dates.at(-1)],
+          itemStyle: { color: "transparent", borderColor: colour.grid, borderWidth: 1 },
+          splitLine: { show: false },
+          dayLabel: { firstDay: 1, color: colour.label, fontSize: 10 },
+          monthLabel: { color: colour.label, fontSize: 10 },
+          yearLabel: { show: false },
+        },
+        series: [{ type: "heatmap", coordinateSystem: "calendar", data: days }],
+      };
     },
 
     // Several metrics stacked into one bar per day or week.
@@ -268,6 +357,9 @@
       const metrics = element.dataset.metrics.split(",");
       const labels = element.dataset.labels.split(",");
       const unit = element.dataset.unit;
+      if (metrics.every((metric) => data.series[metric].every((value) => value === null))) {
+        return null;
+      }
       const option = frame(
         element,
         data,
