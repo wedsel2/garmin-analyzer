@@ -57,6 +57,19 @@ against the templates. It fetches ECharts and HTMX the same way. None of these
 files is in the repository ([ADR 19](adr/0019-chart-library-fetched-in-the-image-build.md)).
 The pages follow the light or dark setting of the device.
 
+### Installing as an app
+
+`static/manifest.webmanifest` names the site and its icons, so Android offers to
+install it. The PNG icons are drawn from the shape of `icon.svg` by
+`scripts/make_icons.py` and committed. The service worker is served as `/sw.js`,
+as it only covers paths below its own, and is registered by `static/install.js`.
+
+The service worker stores three things: the page at `/offline`, which is the
+same for everyone, the stylesheet and the icon. It shows that page when a page
+cannot be loaded. It never stores a page with data or an answer of the API, so
+no health data stays on the device and nothing is left to clear at sign-out.
+Everything else goes to the network as before.
+
 ### Dashboards
 
 A page renders its numbers on the server and marks where a chart goes with

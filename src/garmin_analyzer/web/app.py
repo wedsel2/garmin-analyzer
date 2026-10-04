@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, FastAPI, Form, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine, func, select, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -112,6 +112,18 @@ def healthz(db: Db) -> PlainTextResponse:
     except SQLAlchemyError:
         return PlainTextResponse("database unreachable", status_code=503)
     return PlainTextResponse("ok")
+
+
+@router.get("/sw.js")
+def service_worker() -> FileResponse:
+    """The service worker, at the top of the site: it only covers paths below its own."""
+    return FileResponse(HERE / "static" / "sw.js", media_type="text/javascript")
+
+
+@router.get("/offline")
+def offline(request: Request) -> Response:
+    """What the service worker shows without a connection. The same for everyone."""
+    return templates.TemplateResponse(request, "offline.html", {})
 
 
 @router.get("/")
