@@ -125,8 +125,8 @@ def warn_about_proxy(request: Request) -> None:
     warned.add(proxy)
     log.warning(
         "A request came through a proxy at %s whose forwarded headers are not trusted. "
-        "The session cookie is not marked Secure, links to set a password start with "
-        "http:// and failed sign-ins of all users are counted together. If that is your "
+        "The session cookie is not marked Secure, links to set a password do not use "
+        "HTTPS and failed sign-ins of all users are counted together. If that is your "
         "proxy, set FORWARDED_ALLOW_IPS to its address or network.",
         proxy,
     )
