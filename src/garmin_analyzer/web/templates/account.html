@@ -2,7 +2,8 @@
 {% block title %}Account{% endblock %}
 {% block content %}
 <h1 class="mb-4 text-2xl font-semibold">Account</h1>
-<section class="card max-w-md bg-base-100 shadow-sm">
+{% include "_garmin_status.html" %}
+<section class="card mt-6 max-w-md bg-base-100 shadow-sm">
   <div class="card-body">
     <h2 class="card-title">Change password</h2>
     <p class="opacity-70">For {{ user.email }}. This signs you out on your other devices.</p>

@@ -1,0 +1,29 @@
+{# The state of the user's Garmin link. Needs `link`; the whole status leads to the page that changes it. #}
+<section class="card max-w-md bg-base-100 shadow-sm">
+  <div class="card-body">
+    <div class="flex items-center justify-between">
+      <h2 class="card-title">Garmin</h2>
+      {% if link is none %}
+      <a class="badge badge-ghost" href="/garmin">Not linked</a>
+      {% elif link.status.value == "needs_relink" %}
+      <a class="badge badge-error" href="/garmin">Sign-in needed</a>
+      {% else %}
+      <a class="badge badge-success" href="/garmin">Linked</a>
+      {% endif %}
+    </div>
+    {% if link is none %}
+    <p>No Garmin account is linked yet.</p>
+    <div class="card-actions"><a class="btn btn-primary btn-sm" href="/garmin">Link Garmin</a></div>
+    {% elif link.status.value == "needs_relink" %}
+    <p>Garmin no longer accepts the link. Sign in to Garmin again to continue collecting.</p>
+    <div class="card-actions"><a class="btn btn-primary btn-sm" href="/garmin">Sign in to Garmin again</a></div>
+    {% else %}
+    {% if link.last_synced_at %}
+    <p>Last collected on {{ link.last_synced_at.strftime("%Y-%m-%d at %H:%M") }} UTC.</p>
+    {% else %}
+    <p>Nothing has been collected yet.</p>
+    {% endif %}
+    <div class="card-actions"><a class="btn btn-ghost btn-sm" href="/garmin">Manage link</a></div>
+    {% endif %}
+  </div>
+</section>

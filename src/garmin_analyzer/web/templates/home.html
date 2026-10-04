@@ -2,29 +2,5 @@
 {% block title %}Overview{% endblock %}
 {% block content %}
 <h1 class="mb-4 text-2xl font-semibold">Overview</h1>
-<section class="card max-w-md bg-base-100 shadow-sm">
-  <div class="card-body">
-    <div class="flex items-center justify-between">
-      <h2 class="card-title">Garmin</h2>
-      {% if link is none %}
-      <span class="badge badge-ghost">Not linked</span>
-      {% elif link.status.value == "needs_relink" %}
-      <span class="badge badge-error">Sign-in needed</span>
-      {% else %}
-      <span class="badge badge-success">Linked</span>
-      {% endif %}
-    </div>
-    {% if link is none %}
-    <p>No Garmin account is linked yet.</p>
-    <div class="card-actions"><a class="btn btn-primary btn-sm" href="/garmin">Link Garmin</a></div>
-    {% elif link.status.value == "needs_relink" %}
-    <p>Garmin no longer accepts the link. Sign in to Garmin again to continue collecting.</p>
-    <div class="card-actions"><a class="btn btn-primary btn-sm" href="/garmin">Sign in to Garmin again</a></div>
-    {% elif link.last_synced_at %}
-    <p>Last collected on {{ link.last_synced_at.strftime("%Y-%m-%d at %H:%M") }} UTC.</p>
-    {% else %}
-    <p>Nothing has been collected yet.</p>
-    {% endif %}
-  </div>
-</section>
+{% include "_garmin_status.html" %}
 {% endblock %}

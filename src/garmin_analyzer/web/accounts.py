@@ -13,7 +13,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from garmin_analyzer.models import PasswordLink, User
+from garmin_analyzer.models import GarminLink, PasswordLink, User
 from garmin_analyzer.password_links import LIFETIME, create_link, link_user, use_link
 from garmin_analyzer.passwords import MIN_LENGTH, PasswordError, verify_password
 from garmin_analyzer.ratelimit import FailureLimiter
@@ -189,19 +189,24 @@ def set_password_from_link(
 
 
 def account_page(
-    request: Request, user: User, error: str | None = None, status_code: int = 200
+    request: Request, db: Session, user: User, error: str | None = None, status_code: int = 200
 ) -> Response:
     return templates.TemplateResponse(
         request,
         "account.html",
-        {"user": user, "error": error, "min_length": MIN_LENGTH},
+        {
+            "user": user,
+            "link": db.get(GarminLink, user.id),
+            "error": error,
+            "min_length": MIN_LENGTH,
+        },
         status_code=status_code,
     )
 
 
 @router.get("/account")
-def account(request: Request, user: CurrentUser) -> Response:
-    return account_page(request, user)
+def account(request: Request, db: Db, user: CurrentUser) -> Response:
+    return account_page(request, db, user)
 
 
 @router.post("/account/password")
@@ -219,10 +224,10 @@ def change_password(
     failures: FailureLimiter = request.app.state.failures_by_email
     if not failures.attempt(user.email):
         return account_page(
-            request, user, "Too many failed attempts. Try again in 15 minutes.", 429
+            request, db, user, "Too many failed attempts. Try again in 15 minutes.", 429
         )
     if not verify_password(user.password_hash, current_password):
-        return account_page(request, user, "The current password is not right.", 400)
+        return account_page(request, db, user, "The current password is not right.", 400)
     failures.reset(user.email)
     try:
         if password != password_again:
@@ -230,6 +235,6 @@ def change_password(
         set_password(db, user, password)
     except PasswordError as error:
         db.rollback()
-        return account_page(request, user, sentence(error), 400)
+        return account_page(request, db, user, sentence(error), 400)
     # Every session was ended, this one included; continue in a new one.
     return start_session(request, db, user)

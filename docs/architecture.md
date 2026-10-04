@@ -98,7 +98,8 @@ See [ADR 8](adr/0008-built-in-accounts-and-invites.md),
 
 Scripted sign-in is never used: Garmin blocks it and bans the IP address.
 
-In the browser this is the Link Garmin page, reached from the overview. The
+In the browser this is the Link Garmin page, reached from the Garmin status on
+the overview and on the Account page. The
 lock that allows one sync per user is taken only for the ticket exchange, not
 while the user signs in; when a sync of that user is running, linking is
 refused before the ticket is spent. A user gets 5 attempts in 15 minutes, as

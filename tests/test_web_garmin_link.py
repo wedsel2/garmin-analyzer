@@ -77,7 +77,10 @@ def stored_link(db: Engine) -> GarminLink | None:
 
 
 def test_the_overview_leads_to_the_page_that_explains_linking(client: TestClient) -> None:
-    assert 'href="/garmin"' in client.get("/").text
+    for path in ("/", "/account"):
+        status = client.get(path).text
+        assert '<a class="badge badge-ghost" href="/garmin">Not linked</a>' in status
+        assert "Link Garmin" in status
 
     page = client.get("/garmin")
 
@@ -99,9 +102,11 @@ def test_pasting_the_address_links_the_account(
     assert link.status is LinkStatus.ACTIVE
     assert CIPHER.decrypt(link.encrypted_tokens) == "linked-tokens"
     assert b"linked-tokens" not in link.encrypted_tokens
-    home = client.get("/").text
-    assert "Nothing has been collected yet" in home
-    assert 'href="/garmin"' not in home
+    for path in ("/", "/account"):
+        page = client.get(path).text
+        assert "Nothing has been collected yet" in page
+        assert '<a class="badge badge-success" href="/garmin">Linked</a>' in page
+        assert "Manage link" in page
 
 
 def test_a_refused_ticket_is_explained_and_nothing_is_stored(
@@ -144,6 +149,9 @@ def test_linking_again_makes_a_link_that_needed_it_active(
         )
         session.commit()
     assert "Sign in to Garmin again" in client.get("/").text
+    assert '<a class="badge badge-error" href="/garmin">Sign-in needed</a>' in (
+        client.get("/account").text
+    )
     assert "Garmin no longer accepts the link" in client.get("/garmin").text
 
     assert client.post("/garmin/link", data={"address": PASTED}).status_code == 303
