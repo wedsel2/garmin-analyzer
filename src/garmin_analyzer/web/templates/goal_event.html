@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ "Change event" if event else "Add event" }}{% endblock %}
+{% block scripts %}<script src="/static/goals.js" defer></script>{% endblock %}
 {% block content %}
 <section class="card mx-auto max-w-md bg-base-100 shadow-sm">
   <div class="card-body">
@@ -12,17 +13,23 @@
       <input class="input w-full" id="day" name="day" type="date" value="{{ values.day }}" required>
       <label class="label mt-2" for="sport">Sport</label>
       <select class="select w-full" id="sport" name="sport">
-        <option value="">Another sport</option>
+        <option value="">Other</option>
         {% for sport in sports %}
         <option value="{{ sport }}" {{ "selected" if values.sport == sport }}>{{ sport|capitalize }}</option>
         {% endfor %}
       </select>
-      <label class="label mt-2" for="distance">Distance in km</label>
-      <input class="input w-full" id="distance" name="distance" type="text" inputmode="decimal" value="{{ values.distance }}">
-      <p class="text-sm opacity-70">For a run of 5, 10, 21.1 or 42.2 km, Garmin's predicted time is shown next to your target.</p>
-      <label class="label mt-2" for="target_time">Target time</label>
-      <input class="input w-full" id="target_time" name="target_time" type="text" value="{{ values.target_time }}" placeholder="1:45:00">
-      <p class="text-sm opacity-70">As h:mm:ss or mm:ss. Distance and target time may be left empty.</p>
+      {# goals.js hides these for a sport without them; they are not kept for one either way. #}
+      <div class="flex flex-col gap-1" data-for-sports="{{ distance_sports|join(',') }}">
+        <label class="label mt-2" for="distance">Distance in km</label>
+        <input class="input w-full" id="distance" name="distance" type="text" inputmode="decimal" value="{{ values.distance }}">
+        <p class="text-sm opacity-70">For a run of 5, 10, 21.1 or 42.2 km, Garmin's predicted time is shown next to your target.</p>
+        <label class="label mt-2" for="target_time">Target time</label>
+        <input class="input w-full" id="target_time" name="target_time" type="text" value="{{ values.target_time }}" placeholder="1:45:00">
+        <p class="text-sm opacity-70">As h:mm:ss or mm:ss. Both may be left empty, and are kept only for {{ distance_sports|join(", ") }}.</p>
+      </div>
+      <label class="label mt-2" for="note">Note</label>
+      <textarea class="textarea w-full" id="note" name="note" rows="3" maxlength="{{ max_note_length }}">{{ values.note }}</textarea>
+      <p class="text-sm opacity-70">What you aim for, in your own words.</p>
       <div class="mt-4 flex justify-end gap-2">
         <a class="btn" href="/goals">Cancel</a>
         <button class="btn btn-primary" type="submit">Save</button>

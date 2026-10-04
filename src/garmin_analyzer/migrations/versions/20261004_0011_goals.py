@@ -25,6 +25,7 @@ def upgrade() -> None:
         sa.Column("sport", sa.Text(), nullable=True),
         sa.Column("distance_m", sa.Float(), nullable=True),
         sa.Column("target_time_s", sa.Integer(), nullable=True),
+        sa.Column("note", sa.Text(), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

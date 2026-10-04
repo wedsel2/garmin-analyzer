@@ -16,6 +16,7 @@ from garmin_analyzer.activities import whole_activities
 from garmin_analyzer.models import Activity, GoalEvent, Measure, RacePrediction, WeeklyGoal
 
 MAX_NAME_LENGTH = 100
+MAX_NOTE_LENGTH = 2000
 # Of each kind, per user.
 MAX_GOALS = 50
 # The weeks before this one that a weekly goal is looked back over.
@@ -34,6 +35,9 @@ SPORTS: dict[str, tuple[str, ...]] = {
     "hiking": ("hiking",),
     "strength": ("strength",),
 }
+# The sports in which an event has a distance and a time to aim for. An event of
+# another sport, or of none of them, is described by its note.
+DISTANCE_SPORTS = ("running", "walking", "cycling", "hiking", "swimming")
 
 
 @dataclass(frozen=True)
@@ -112,9 +116,18 @@ def is_sport(type_key: str | None, sport: str | None) -> bool:
 
 
 def set_event(
-    event: GoalEvent, name: str, day: str, sport: str, distance_km: str, target_time: str
+    event: GoalEvent,
+    name: str,
+    day: str,
+    sport: str,
+    distance_km: str,
+    target_time: str,
+    note: str,
 ) -> None:
-    """Fill an event from what its form holds. Changes nothing when a field is refused."""
+    """Fill an event from what its form holds. Changes nothing when a field is refused.
+
+    A distance and a target time are kept only for a sport that has them.
+    """
     name = name.strip()[:MAX_NAME_LENGTH]
     if not name:
         raise GoalError("give the event a name")
@@ -125,17 +138,22 @@ def set_event(
     if not FIRST_YEAR <= event_date.year <= LAST_YEAR:
         raise GoalError(f"the date must be between {FIRST_YEAR} and {LAST_YEAR}")
     kind = parse_sport(sport)
-    distance_m = (
-        parse_number(distance_km, "the distance", MAX_DISTANCE_KM) * 1000
-        if distance_km.strip()
-        else None
-    )
-    target_time_s = parse_time(target_time) if target_time.strip() else None
+    distance_m, target_time_s = None, None
+    if kind in DISTANCE_SPORTS:
+        if distance_km.strip():
+            distance_m = parse_number(distance_km, "the distance", MAX_DISTANCE_KM) * 1000
+        if target_time.strip():
+            target_time_s = parse_time(target_time)
+    # A browser sends the end of a line as two characters and counts it as one.
+    note = note.replace("\r\n", "\n").strip()
+    if len(note) > MAX_NOTE_LENGTH:
+        raise GoalError(f"the note can be at most {MAX_NOTE_LENGTH} characters")
     event.name = name
     event.event_date = event_date
     event.sport = kind
     event.distance_m = distance_m
     event.target_time_s = target_time_s
+    event.note = note or None
 
 
 def set_weekly_goal(goal: WeeklyGoal, measure: str, target: str, sport: str) -> None:
@@ -151,6 +169,8 @@ def set_weekly_goal(goal: WeeklyGoal, measure: str, target: str, sport: str) -> 
     if kind is Measure.ACTIVITIES and amount != int(amount):
         raise GoalError("a number of activities is a whole number")
     of = parse_sport(sport)
+    if kind is Measure.DISTANCE and of is not None and of not in DISTANCE_SPORTS:
+        raise GoalError(f"{of} has no distance; count hours or activities")
     goal.measure = kind
     goal.target = amount
     goal.sport = of

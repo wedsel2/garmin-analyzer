@@ -301,6 +301,7 @@ def test_goals_page_without_goals_says_so(client: TestClient) -> None:
         ({"distance": "far"}, "The distance is not a number."),
         ({"distance": "0"}, "The distance must be more than 0 and at most 10000."),
         ({"target_time": "fast"}, "Write the target time as h:mm:ss or mm:ss."),
+        ({"note": "x" * 2001}, "The note can be at most 2000 characters."),
     ],
 )
 def test_an_event_that_cannot_be_used_comes_back_with_what_was_entered(
@@ -326,6 +327,49 @@ def test_an_event_needs_only_a_name_and_a_date_and_its_name_is_shown_as_text(
     assert "&lt;b&gt;Tour&lt;/b&gt;" in page
     assert "<b>Tour</b>" not in page
     assert "Garmin predicts" not in page
+
+
+@pytest.mark.parametrize("sport", ["strength", ""])
+def test_an_event_of_a_sport_without_a_distance_is_described_by_its_note(
+    client: TestClient, db: Engine, sport: str
+) -> None:
+    data = HALF_MARATHON | {
+        "sport": sport,
+        "distance": "not asked for",
+        "note": "  Deadlift twice my weight.\r\nWithout a belt. <3  ",
+    }
+
+    assert client.post("/goals/events/new", data=data).status_code == 303
+    with Session(db) as session:
+        event = session.scalars(select(GoalEvent)).one()
+        assert (event.sport, event.distance_m, event.target_time_s) == (sport or None, None, None)
+        assert event.note == "Deadlift twice my weight.\nWithout a belt. <3"
+    page = client.get("/goals").text
+    form = client.get(f"/goals/events/{event.id}").text
+
+    assert f"· {(sport or 'other').capitalize()}\n    </p>" in page
+    assert "target" not in page
+    assert "Deadlift twice my weight.\nWithout a belt. &lt;3</p>" in page
+    assert "Without a belt. &lt;3</textarea>" in form
+    assert '<option value="">Other</option>' in form
+    assert 'data-for-sports="running,walking,cycling,hiking,swimming"' in form
+    assert '<script src="/static/goals.js" defer></script>' in form
+    assert "data-for-sports" in client.get("/static/goals.js").text
+
+
+def test_a_note_can_be_as_long_as_the_form_allows_and_be_taken_away(
+    client: TestClient, db: Engine, user: User
+) -> None:
+    event_id = add_event(db, user, TODAY, note="Old")
+    lines = "\r\n".join(["x" * 99] * 20)
+
+    assert client.post(f"/goals/events/{event_id}", data=HALF_MARATHON | {"note": lines})
+    with Session(db) as session:
+        assert len(session.get_one(GoalEvent, event_id).note or "") == 1999
+    assert client.post(f"/goals/events/{event_id}", data=HALF_MARATHON | {"note": " "})
+    with Session(db) as session:
+        event = session.get_one(GoalEvent, event_id)
+        assert (event.note, event.distance_m) == (None, 21_100)
 
 
 def test_an_event_can_be_changed_and_removed(client: TestClient, db: Engine, user: User) -> None:
@@ -364,6 +408,10 @@ def test_an_event_can_be_changed_and_removed(client: TestClient, db: Engine, use
         ({"measure": "hours", "target": "101"}, "The target must be more than 0 and at most 100."),
         ({"measure": "activities", "target": "2.5"}, "A number of activities is a whole number."),
         ({"measure": "distance", "target": "40", "sport": "chess"}, "Pick a sport from the list."),
+        (
+            {"measure": "distance", "target": "40", "sport": "strength"},
+            "Strength has no distance; count hours or activities.",
+        ),
         ({"measure": "hours", "target": "0.04"}, "The target must be at least 0.1."),
         ({}, "Pick what to count."),
     ],

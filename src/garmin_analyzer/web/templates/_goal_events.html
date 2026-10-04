@@ -9,12 +9,13 @@
     </div>
     <p class="text-sm opacity-70">
       <time datetime="{{ event.event_date }}">{{ long_date(event.event_date) }}</time>
-      {%- if event.sport %} · {{ event.sport|capitalize }}{% endif %}
+      · {{ (event.sport or 'other')|capitalize }}
       {%- if event.distance_m %} · {{ "%g"|format(event.distance_m / 1000) }} km{% endif %}
       {%- if event.target_time_s %} · target {{ event.target_time_s|duration }}
       {%- if item.target_speed_mps %} ({{ tempo(event.sport, item.target_speed_mps) }}){% endif %}
       {%- endif %}
     </p>
+    {% if event.note %}<p class="text-sm whitespace-pre-line">{{ event.note }}</p>{% endif %}
     {% if item.predicted_s is not none %}
     <p class="text-sm">
       Garmin predicts {{ item.predicted_s|duration }}

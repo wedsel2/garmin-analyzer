@@ -80,7 +80,9 @@ def event_form(
             "values": values,
             "error": error,
             "sports": goals.SPORTS,
+            "distance_sports": goals.DISTANCE_SPORTS,
             "max_name_length": goals.MAX_NAME_LENGTH,
+            "max_note_length": goals.MAX_NOTE_LENGTH,
         },
         status_code=400 if error else 200,
     )
@@ -93,6 +95,7 @@ def event_values(event: GoalEvent) -> dict[str, str]:
         "sport": event.sport or "",
         "distance": "" if event.distance_m is None else f"{event.distance_m / 1000:g}",
         "target_time": duration(event.target_time_s),
+        "note": event.note or "",
     }
 
 
@@ -119,6 +122,7 @@ def save_event(
             values["sport"],
             values["distance"],
             values["target_time"],
+            values["note"],
         )
     except GoalError as error:
         return event_form(request, user, values, event, sentence(error))
@@ -143,6 +147,7 @@ def new_event(
     sport: Annotated[str, Form()] = "",
     distance: Annotated[str, Form()] = "",
     target_time: Annotated[str, Form()] = "",
+    note: Annotated[str, Form()] = "",
 ) -> Response:
     values = {
         "name": name,
@@ -150,6 +155,7 @@ def new_event(
         "sport": sport,
         "distance": distance,
         "target_time": target_time,
+        "note": note,
     }
     return save_event(request, db, user, None, values)
 
@@ -171,6 +177,7 @@ def change_event(
     sport: Annotated[str, Form()] = "",
     distance: Annotated[str, Form()] = "",
     target_time: Annotated[str, Form()] = "",
+    note: Annotated[str, Form()] = "",
 ) -> Response:
     values = {
         "name": name,
@@ -178,6 +185,7 @@ def change_event(
         "sport": sport,
         "distance": distance,
         "target_time": target_time,
+        "note": note,
     }
     return save_event(request, db, user, own_event(db, user, event_id), values)
 

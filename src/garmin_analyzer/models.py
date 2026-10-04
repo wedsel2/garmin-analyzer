@@ -526,6 +526,9 @@ class GoalEvent(Base):
     sport: Mapped[str | None] = mapped_column(Text)
     distance_m: Mapped[float | None]
     target_time_s: Mapped[int | None]
+    # What the user says about the event in their own words, also for the AI
+    # analysis to read.
+    note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

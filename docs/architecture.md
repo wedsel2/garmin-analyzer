@@ -137,10 +137,12 @@ A user keeps two kinds of goal on the **Goals** page, each added, changed and
 removed through a form. A **weekly goal** is a number of hours, kilometres or
 activities to reach every week, for one sport or all: the page shows this week
 so far and in how many of the 8 weeks before it the target was reached. An
-**event** is a day to train for, with a sport, a distance and a target time
-where they apply: the page shows how long it is until then and the pace the
-target asks for, and for a run of a distance that Garmin predicts, its
-predicted time against the target. Under an event that has been, the page
+**event** is a day to train for, with a sport and a note in the user's own
+words, which the AI analysis will read. An event of running, walking, cycling,
+hiking or swimming can have a distance and a target time; one of strength or
+of another sport is described by its note alone. The page shows how long it is
+until then and the pace the target asks for, and for a run of a distance that
+Garmin predicts, its predicted time against the target. Under an event that has been, the page
 names the activity of that day. The overview shows the weekly goals and the
 next three events when there are any.
 

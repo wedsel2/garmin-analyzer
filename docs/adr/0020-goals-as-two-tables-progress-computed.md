@@ -25,6 +25,11 @@ catches up.
 - A goal names a **sport** from a short list in `goals.py`, or none. A sport
   matches an activity when Garmin's type of it contains one of the words listed
   for the sport. No sport means all activities for a weekly goal.
+- An event has a **note** in the user's own words, kept as text for the AI
+  analysis to read. Only an event of running, walking, cycling, hiking or
+  swimming has a distance and a target time; for strength or another sport the
+  note says what the aim is, and whatever was entered for the other two is not
+  kept. A weekly goal counts distance only for those sports, or for all.
 - **Nothing about progress is stored.** A page works out, when asked: the sum
   of this week and of the 8 weeks before for a weekly goal; Garmin's latest
   predicted time for a running event of 5 km, 10 km, a half or a whole marathon
