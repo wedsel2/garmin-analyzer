@@ -4,6 +4,7 @@ See ADR 8 for accounts and ADR 15 for how sessions and forms are protected.
 """
 
 import hashlib
+import logging
 from contextlib import suppress
 from typing import Annotated
 from urllib.parse import urlsplit
@@ -54,6 +55,7 @@ from garmin_analyzer.web.shared import (
 )
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 FAILED_SIGN_INS_PER_EMAIL = 5
 FAILED_SIGN_INS_PER_ADDRESS = 20
@@ -90,8 +92,40 @@ def is_cross_site(request: Request) -> bool:
     return urlsplit(origin).netloc != request.headers.get("host")
 
 
+def untrusted_proxy(request: Request) -> str | None:
+    """The address of a proxy whose forwarded headers were not used, if there is one.
+
+    The server puts the client's address from X-Forwarded-For in place of the
+    proxy's when it trusts the proxy. So a request that has the header and still
+    comes from an address that is not in it passed a proxy that is not trusted.
+    """
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded is None or request.client is None:
+        return None
+    addresses = {address.strip() for address in forwarded.split(",")}
+    return None if request.client.host in addresses else request.client.host
+
+
+def warn_about_proxy(request: Request) -> None:
+    """Say once that a proxy is not trusted, as nothing else shows it."""
+    if request.app.state.proxy_warned:
+        return
+    proxy = untrusted_proxy(request)
+    if proxy is None:
+        return
+    request.app.state.proxy_warned = True
+    log.warning(
+        "A request came through a proxy at %s whose forwarded headers are not trusted. "
+        "The session cookie is not marked Secure, links to set a password start with "
+        "http:// and failed sign-ins of all users are counted together. If that is your "
+        "proxy, set FORWARDED_ALLOW_IPS to its address or network.",
+        proxy,
+    )
+
+
 async def protect(request: Request, call_next: RequestResponseEndpoint) -> Response:
     """Refuse forms posted from other sites and set security headers."""
+    warn_about_proxy(request)
     if request.method not in SAFE_METHODS and is_cross_site(request):
         return PlainTextResponse("request from another site refused", status_code=403)
     response = await call_next(request)
@@ -278,6 +312,7 @@ def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
     app.state.failures_by_address = FailureLimiter(
         FAILED_SIGN_INS_PER_ADDRESS, SIGN_IN_PERIOD_SECONDS
     )
+    app.state.proxy_warned = False
     app.middleware("http")(protect)
     # The stylesheet holds the whole component kit and shrinks to a fraction.
     app.add_middleware(GZipMiddleware)
