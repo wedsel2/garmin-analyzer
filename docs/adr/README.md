@@ -25,6 +25,7 @@ the old one.
 | [17](0017-worker-as-a-polling-loop.md) | The worker is one process that polls the database for users due a sync | Accepted |
 | [18](0018-series-api-for-charts.md) | Charts read a versioned JSON API that returns series as columns | Accepted |
 | [19](0019-chart-library-fetched-in-the-image-build.md) | The chart library is fetched in the image build, not committed | Accepted |
+| [20](0020-goals-as-two-tables-progress-computed.md) | Goals are two typed tables, and progress is computed when read | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.

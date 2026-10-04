@@ -37,6 +37,7 @@ from garmin_analyzer.web import (
     api,
     dashboards,
     garmin_link,
+    goal_pages,
     overview,
     shared,
 )
@@ -193,6 +194,7 @@ def home(request: Request, db: Db, user: CurrentUser) -> Response:
             "phrase": overview.phrase,
             "series_url": overview.series_url(today),
             "activities": overview.recent_activities(db, user.id),
+            **goal_pages.overview_context(db, user, today),
         },
     )
 
@@ -332,5 +334,6 @@ def create_app(engine: Engine, cipher: TokenCipher) -> FastAPI:
     app.include_router(garmin_link.router, include_in_schema=False)
     app.include_router(dashboards.router, include_in_schema=False)
     app.include_router(activity_pages.router, include_in_schema=False)
+    app.include_router(goal_pages.router, include_in_schema=False)
     app.include_router(api.router)
     return app

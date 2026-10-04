@@ -12,7 +12,7 @@ intentionally less detailed.
 | 4 | Web foundation | `serve`, accounts, invites, Garmin link flow, base layout and styling, and a scheduled worker that runs `collect` | Done |
 | 5 | Dashboards | Overview plus pages per metric family, date range selection | Done |
 | 6 | Publish | Tunnel hostname, Cloudflare Access, installable on Android, [self-hosting guide](self-hosting.md) | Done, published on 2026-10-04 |
-| 7 | Goals | Goal management per user | |
+| 7 | Goals | Events to train for and weekly goals per user, on their own page and on the overview | Done |
 | 8 | AI analysis | Claude-based analysis and training recommendations | |
 
 ## Phase 2 and 3 outcome
@@ -41,6 +41,12 @@ and the first live collection.
    on Android installed the site through Access without a bypass.
 
 ## Deferred on purpose
+
+- **A goal on a collected metric**, such as VO2 max or resting heart rate by a
+  date. Left out of phase 7 by choice; see
+  [ADR 20](adr/0020-goals-as-two-tables-progress-computed.md).
+- **Goals in the JSON API.** They have pages only until a chart or another
+  client needs them.
 
 - **A street map under the route of an activity.** Map tiles come from a third
   party, which would learn where a user trains and needs an exception in the

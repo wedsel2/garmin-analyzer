@@ -510,3 +510,48 @@ class ActivityZone(Base):
     zone_number: Mapped[int] = mapped_column(primary_key=True)
     seconds: Mapped[float | None]
     low_boundary: Mapped[int | None]
+
+
+class GoalEvent(Base):
+    """A race or other event a user trains for. See ADR 20."""
+
+    __tablename__ = "goal_events"
+    __table_args__ = (Index("ix_goal_events_user_id_event_date", "user_id", "event_date"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(Text)
+    event_date: Mapped[date] = mapped_column(Date)
+    # A key of goals.SPORTS, or nothing for a sport that is not in it.
+    sport: Mapped[str | None] = mapped_column(Text)
+    distance_m: Mapped[float | None]
+    target_time_s: Mapped[int | None]
+    # What the user says about the event in their own words, also for the AI
+    # analysis to read.
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Measure(enum.Enum):
+    HOURS = "hours"
+    DISTANCE = "distance"
+    ACTIVITIES = "activities"
+
+
+class WeeklyGoal(Base):
+    """What a user wants to do every week, Monday to Sunday. See ADR 20."""
+
+    __tablename__ = "weekly_goals"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid7)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    measure: Mapped[Measure] = mapped_column(
+        Enum(Measure, name="goal_measure", values_callable=lambda e: [m.value for m in e])
+    )
+    # A key of goals.SPORTS, or nothing for all sports together.
+    sport: Mapped[str | None] = mapped_column(Text)
+    # Hours, kilometres or a number of activities, as the measure says.
+    target: Mapped[float]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -3,7 +3,7 @@
 Target design. What exists today is the pipeline, the database schema, the
 collector, the scheduled worker, and the foundation of the web interface:
 setting up the first account, signing in, inviting and managing users, linking
-Garmin, the base layout and styling, and the first dashboard, the overview. See the [roadmap](roadmap.md) for
+Garmin, the base layout and styling, the dashboards and goals. See the [roadmap](roadmap.md) for
 the order of work and the [decision records](adr/README.md) for the reasoning.
 
 ## Goal
@@ -35,9 +35,9 @@ their own instance with little effort.
 
 | Component | Responsibility |
 |---|---|
-| **web** | Login, user and invite management, Garmin link flow, dashboards, JSON API |
+| **web** | Login, user and invite management, Garmin link flow, dashboards, goals, JSON API |
 | **worker** | Backfill on link, then incremental sync per user; rate-limited and resumable |
-| **PostgreSQL** | Users, encrypted Garmin tokens, raw payloads, normalised metrics, later goals |
+| **PostgreSQL** | Users, encrypted Garmin tokens, raw payloads, normalised metrics, goals |
 
 `web` and `worker` are the same image started with different commands, so there
 is one artifact to build, scan and release.
@@ -130,6 +130,27 @@ values and 1000 positions. The route is drawn as a line on an empty
 background, on one scale in both directions: there is no map under it, as its
 tiles would come from a third party. A chart of something that was not
 recorded is left out. An activity of someone else does not exist for a user.
+
+### Goals
+
+A user keeps two kinds of goal on the **Goals** page, each added, changed and
+removed through a form. A **weekly goal** is a number of hours, kilometres or
+activities to reach every week, for one sport or all: the page shows this week
+so far and in how many of the 8 weeks before it the target was reached. An
+**event** is a day to train for, with a sport and a note in the user's own
+words, which the AI analysis will read. An event of running, walking, cycling,
+hiking or swimming can have a distance and a target time; one of strength or
+of another sport is described by its note alone. The page shows how long it is
+until then and the pace the target asks for, and for a run of a distance that
+Garmin predicts, its predicted time against the target. Under an event that has been, the page
+names the activity of that day. The overview shows the weekly goals and the
+next three events when there are any.
+
+A sport of a goal is one of a short list and covers the kinds Garmin tells
+apart: a trail run counts as running. Progress is not stored but worked out
+from the activities when a page asks, with weeks from Monday to Sunday in UTC
+as on the training page. The goal of someone else does not exist for a user.
+See [ADR 20](adr/0020-goals-as-two-tables-progress-computed.md) and `goals.py`.
 
 ## Users and access
 
@@ -250,6 +271,9 @@ Still raw-only, because the sample account had no data to build against: pulse
 ox, endurance score, hill score, and lactate threshold heart rate and speed.
   Garmin marks unmeasured points with negative numbers; parsers drop them.
 
+Goals are not derived from Garmin: `goal_events` and `weekly_goals` hold what
+the user entered.
+
 Schema changes are Alembic migrations, applied on start-up of the `web` service.
 The worker starts once `web` is healthy and refuses to run on an older schema.
 
@@ -276,6 +300,5 @@ web service names the address of that proxy in its log, once per address.
 
 ## Later
 
-- **Goals**: per-user goals (event, date, target) stored relationally.
 - **AI analysis**: the Claude API reads normalised metrics and goals and writes
   recommendations; needs its own decision record (data sent, cost, consent).

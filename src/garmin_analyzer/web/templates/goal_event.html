@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ "Change event" if event else "Add event" }}{% endblock %}
+{% block scripts %}<script src="/static/goals.js" defer></script>{% endblock %}
+{% block content %}
+<section class="card mx-auto max-w-md bg-base-100 shadow-sm">
+  <div class="card-body">
+    <h1 class="card-title text-2xl">{{ "Change event" if event else "Add event" }}</h1>
+    {% if error %}<p class="alert alert-error alert-soft" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/goals/events/{{ event.id if event else 'new' }}" class="flex flex-col gap-1">
+      <label class="label" for="name">Name</label>
+      <input class="input w-full" id="name" name="name" type="text" value="{{ values.name }}" maxlength="{{ max_name_length }}" required>
+      <label class="label mt-2" for="day">Date</label>
+      <input class="input w-full" id="day" name="day" type="date" value="{{ values.day }}" required>
+      <label class="label mt-2" for="sport">Sport</label>
+      <select class="select w-full" id="sport" name="sport">
+        <option value="">Other</option>
+        {% for sport in sports %}
+        <option value="{{ sport }}" {{ "selected" if values.sport == sport }}>{{ sport|capitalize }}</option>
+        {% endfor %}
+      </select>
+      {# goals.js hides these for a sport without them; they are not kept for one either way. #}
+      <div class="flex flex-col gap-1" data-for-sports="{{ distance_sports|join(',') }}">
+        <label class="label mt-2" for="distance">Distance in km</label>
+        <input class="input w-full" id="distance" name="distance" type="text" inputmode="decimal" value="{{ values.distance }}">
+        <p class="text-sm opacity-70">For a run of 5, 10, 21.1 or 42.2 km, Garmin's predicted time is shown next to your target.</p>
+        <label class="label mt-2" for="target_time">Target time</label>
+        <input class="input w-full" id="target_time" name="target_time" type="text" value="{{ values.target_time }}" placeholder="1:45:00">
+        <p class="text-sm opacity-70">As h:mm:ss or mm:ss. Both may be left empty, and are kept only for {{ distance_sports|join(", ") }}.</p>
+      </div>
+      <label class="label mt-2" for="note">Note</label>
+      <textarea class="textarea w-full" id="note" name="note" rows="3" maxlength="{{ max_note_length }}">{{ values.note }}</textarea>
+      <p class="text-sm opacity-70">What you aim for, in your own words.</p>
+      <div class="mt-4 flex justify-end gap-2">
+        <a class="btn" href="/goals">Cancel</a>
+        <button class="btn btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+    {% if event %}
+    <form method="post" action="/goals/events/{{ event.id }}/remove" class="mt-2 border-t border-base-200 pt-4">
+      <button class="btn btn-error btn-outline btn-sm" type="submit">Remove this event</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

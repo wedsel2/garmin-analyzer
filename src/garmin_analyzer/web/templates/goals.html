@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Goals{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-2xl font-semibold">Goals</h1>
+<section class="card bg-base-100 shadow-sm">
+  <div class="card-body p-4">
+    <div class="flex items-center justify-between">
+      <h2 class="card-title">Every week</h2>
+      <a class="btn btn-primary btn-sm" href="/goals/weekly/new">Add weekly goal</a>
+    </div>
+    {% if progress %}
+    {% include "_weekly_goals.html" %}
+    <p class="text-sm opacity-70">A week runs from Monday to Sunday.</p>
+    {% else %}
+    <p class="opacity-70">No weekly goals yet: hours, distance or a number of activities to reach every week.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card mt-6 bg-base-100 shadow-sm">
+  <div class="card-body p-4">
+    <div class="flex items-center justify-between">
+      <h2 class="card-title">Events</h2>
+      <a class="btn btn-primary btn-sm" href="/goals/events/new">Add event</a>
+    </div>
+    {% if upcoming %}
+    {% with events = upcoming %}{% include "_goal_events.html" %}{% endwith %}
+    {% else %}
+    <p class="opacity-70">No events to come: a race or another day to train for.</p>
+    {% endif %}
+  </div>
+</section>
+
+{% if past %}
+<section class="card mt-6 bg-base-100 shadow-sm">
+  <div class="card-body p-4">
+    <h2 class="card-title">Past events</h2>
+    {% with events = past %}{% include "_goal_events.html" %}{% endwith %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -32,7 +32,7 @@
   <main class="mx-auto w-full max-w-5xl p-4 sm:p-6">
     {% if user %}
     <nav class="mb-4 flex flex-wrap gap-1" aria-label="Dashboards">
-      {% for path, name in [("/", "Overview"), ("/day", "Day"), ("/recovery", "Recovery"), ("/sleep", "Sleep"), ("/training", "Training"), ("/activities", "Activities")] %}
+      {% for path, name in [("/", "Overview"), ("/day", "Day"), ("/recovery", "Recovery"), ("/sleep", "Sleep"), ("/training", "Training"), ("/activities", "Activities"), ("/goals", "Goals")] %}
       {% set here = request.url.path == path or (path != "/" and request.url.path.startswith(path ~ "/")) %}
       <a class="btn btn-ghost btn-sm {{ 'btn-active' if here }}" href="{{ path }}"
          {% if here %}aria-current="page"{% endif %}>{{ name }}</a>
