@@ -9,7 +9,7 @@ the old one.
 | [1](0001-host-on-github-public.md) | Host on GitHub as a public repository | Accepted |
 | [2](0002-python-toolchain.md) | Python toolchain: uv, Ruff, mypy, pytest | Accepted |
 | [3](0003-security-and-quality-scanning.md) | Security and quality scanning | Accepted |
-| [4](0004-dependency-updates-with-renovate.md) | Renovate for updates, Dependabot for alerts only | Accepted |
+| [4](0004-dependency-updates-with-renovate.md) | Renovate for updates, Dependabot for alerts only | Superseded by [23](0023-renovate-runs-all-monday-and-tracks-tool-versions.md) |
 | [5](0005-build-once-promote-and-release.md) | Build once, promote the tested image, release with semantic-release | Accepted |
 | [6](0006-single-app-image-with-postgresql.md) | One application image, stock PostgreSQL alongside | Accepted |
 | [7](0007-web-app-fastapi-server-rendered.md) | Custom web app: FastAPI with a server-rendered interface | Accepted |
@@ -28,6 +28,7 @@ the old one.
 | [20](0020-goals-as-two-tables-progress-computed.md) | Goals are two typed tables, and progress is computed when read | Accepted |
 | [21](0021-coach-reports-by-claude-opt-in.md) | The coach is a report that Claude writes on request, opt-in per user | Accepted |
 | [22](0022-sync-on-request-through-the-worker.md) | A user asks for a sync on the account page and the worker runs it | Accepted |
+| [23](0023-renovate-runs-all-monday-and-tracks-tool-versions.md) | Renovate runs all of Monday, also checks OSV, and tracks tool versions set in workflows | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.
