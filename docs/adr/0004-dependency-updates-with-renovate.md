@@ -1,6 +1,6 @@
 # 4. Renovate for updates, Dependabot for alerts only
 
-- Status: Accepted
+- Status: Superseded by [23](0023-renovate-runs-all-monday-and-tracks-tool-versions.md)
 - Date: 2026-10-01
 
 ## Context

@@ -18,7 +18,7 @@ pull request / push to main
     release       semantic-release → retag X.Y.Z + latest → cosign sign → SBOM
 
 nightly           Trivy rescan of the latest released image
-weekly            Renovate update pull requests (hosted app, not a workflow)
+mondays           Renovate update pull requests (hosted app, not a workflow)
 ```
 
 | File | Purpose |
