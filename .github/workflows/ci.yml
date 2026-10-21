@@ -13,6 +13,9 @@ permissions:
   contents: read
 
 env:
+  # The action installs its own default Trivy otherwise, which Renovate cannot see.
+  # renovate: datasource=github-releases depName=aquasecurity/trivy
+  TRIVY_VERSION: v0.76.1
   IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
@@ -61,6 +64,7 @@ jobs:
       - name: Scan lockfile and Containerfile
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: ${{ env.TRIVY_VERSION }}
           scan-type: fs
           scan-ref: .
           scanners: vuln,misconfig
@@ -97,6 +101,7 @@ jobs:
       - name: Scan image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: ${{ env.TRIVY_VERSION }}
           image-ref: ${{ env.IMAGE }}:sha-${{ github.sha }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
@@ -171,6 +176,7 @@ jobs:
         if: steps.release.outputs.tag != ''
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: ${{ env.TRIVY_VERSION }}
           image-ref: ${{ steps.promote.outputs.ref }}
           format: cyclonedx
           output: sbom.cdx.json

@@ -19,6 +19,15 @@ images and actions), a weekly schedule, a 3-day minimum release age, weekly
 lockfile maintenance, and automerge for non-major updates once CI is green.
 Major updates wait for review.
 
+The schedule is the whole of Monday rather than a few early hours: the hosted app
+does not run at a fixed time, and a narrow window was missed. Renovate also checks
+the dependencies it detects against OSV (`osvVulnerabilityAlerts`), so security
+fixes do not depend on Dependabot alerts alone.
+
+Tool versions that an action would otherwise pick itself, such as the Trivy
+version in `trivy-action`, are set in the workflow with a `# renovate:` comment,
+so Renovate updates them too.
+
 ## Alternatives considered
 
 - **Dependabot version updates**: built in, but no digest pinning of base images,
@@ -28,8 +37,10 @@ Major updates wait for review.
 
 ## Consequences
 
-- Renovate reads Dependabot alerts and raises security fixes immediately,
-  bypassing the schedule.
+- Renovate reads Dependabot alerts and OSV and raises security fixes immediately,
+  bypassing the schedule. Both cover only what is detected; a vulnerable
+  transitive package in `uv.lock` may wait for the weekly lockfile maintenance,
+  and the nightly scan is what reports it.
 - Automerge relies on the CI pipeline being a trustworthy gate; the release-age
   delay limits exposure to freshly compromised packages.
 - Production dependency updates are committed as `fix(deps)` and therefore

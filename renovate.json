@@ -8,10 +8,12 @@
     "customManagers:dockerfileVersions"
   ],
   "timezone": "Europe/Amsterdam",
-  "schedule": ["before 6am on monday"],
+  "schedule": ["on monday"],
+  "osvVulnerabilityAlerts": true,
   "minimumReleaseAge": "3 days",
   "lockFileMaintenance": {
     "enabled": true,
+    "schedule": ["on monday"],
     "automerge": true
   },
   "packageRules": [
