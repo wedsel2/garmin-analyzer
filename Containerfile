@@ -3,7 +3,7 @@
 # renovate: datasource=github-releases depName=tailwindlabs/tailwindcss extractVersion=^v(?<version>.*)$
 ARG TAILWIND_VERSION=4.3.3
 # renovate: datasource=github-releases depName=saadeghi/daisyui extractVersion=^v(?<version>.*)$
-ARG DAISYUI_VERSION=5.7.47
+ARG DAISYUI_VERSION=5.7.50
 # renovate: datasource=npm depName=echarts
 ARG ECHARTS_VERSION=6.1.0
 # renovate: datasource=npm depName=htmx.org
