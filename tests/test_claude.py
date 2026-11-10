@@ -81,7 +81,7 @@ def test_a_report_comes_back_in_the_shape_asked_for(
         340,
     )
     [request] = requests
-    assert request.headers["x-api-key"] == KEY
+    assert request.headers["authorization"] == f"Bearer {KEY}"
     assert claude.FALLBACK_BETA in request.headers["anthropic-beta"]
     body = json.loads(request.content)
     assert body["model"] == "claude-opus-5-5"
