@@ -16,8 +16,11 @@ from garminconnect import (
     GarminConnectAuthenticationError,
     GarminConnectConnectionError,
     GarminConnectTooManyRequestsError,
-    HTTPError,
 )
+
+# Some paths of the library let the HTTP errors of requests through as they are.
+# The library re-exported this name up to 0.3.17.
+from requests import HTTPError
 
 SSO_EMBED = "https://sso.garmin.com/sso/embed"
 SIGN_IN_URL = "https://sso.garmin.com/sso/signin?" + urlencode(
