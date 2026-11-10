@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # renovate: datasource=github-releases depName=tailwindlabs/tailwindcss extractVersion=^v(?<version>.*)$
-ARG TAILWIND_VERSION=4.3.3
+ARG TAILWIND_VERSION=4.3.5
 # renovate: datasource=github-releases depName=saadeghi/daisyui extractVersion=^v(?<version>.*)$
 ARG DAISYUI_VERSION=5.7.47
 # renovate: datasource=npm depName=echarts
