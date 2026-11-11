@@ -53,7 +53,7 @@ ADD --checksum=sha256:55fd0b241214eff3de1e8ee4f22796662f2d2e7a49bcfca7477cfd0bac
 FROM tailwind-${TARGETARCH} AS css
 ARG DAISYUI_VERSION
 WORKDIR /css
-ADD --checksum=sha256:85819d3fe86a852237b439b13f481481aac58e562ac47694cd11c3038e994f2a \
+ADD --checksum=sha256:d69de07c7463bb1f41548e2688f88ee105cdadf9779fce5b3c47b3bfaa6be472 \
     https://github.com/saadeghi/daisyui/releases/download/v${DAISYUI_VERSION}/daisyui.mjs \
     styles/daisyui.mjs
 COPY styles/app.css styles/app.css
