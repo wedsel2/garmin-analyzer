@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 
 # renovate: datasource=github-releases depName=tailwindlabs/tailwindcss extractVersion=^v(?<version>.*)$
 ARG TAILWIND_VERSION=4.3.5
@@ -11,7 +11,7 @@ ARG HTMX_VERSION=2.0.11
 # Set by the build to the architecture the image is for.
 ARG TARGETARCH
 
-FROM python:3.14-slim-trixie AS builder
+FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.21 /uv /bin/uv
 
@@ -37,13 +37,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # is needed (ADR 7). The downloads are checked against pinned checksums: when
 # Renovate raises a version, put in the new checksums by hand. Only the CLI for
 # the architecture being built is fetched.
-FROM python:3.14-slim-trixie AS tailwind-amd64
+FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f AS tailwind-amd64
 ARG TAILWIND_VERSION
 ADD --checksum=sha256:dc61b3ac6b8c9ca874c0cc4c57b2409791a64c5540404ca5f5367360babc313a --chmod=755 \
     https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-x64 \
     /usr/local/bin/tailwindcss
 
-FROM python:3.14-slim-trixie AS tailwind-arm64
+FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f AS tailwind-arm64
 ARG TAILWIND_VERSION
 ADD --checksum=sha256:55fd0b241214eff3de1e8ee4f22796662f2d2e7a49bcfca7477cfd0bac398195 --chmod=755 \
     https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-arm64 \
@@ -76,7 +76,7 @@ ADD --checksum=sha256:d6fdc75f204e6bdefa99b69bf1e6d4ac69b8a364f77929f45c13476b40
 COPY --from=css /out/app.css /app.css
 
 
-FROM python:3.14-slim-trixie
+FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f
 
 # Pick up Debian security fixes newer than the base image, and drop pip: the
 # runtime never installs packages and pip's vendored libraries trip the image scan.
