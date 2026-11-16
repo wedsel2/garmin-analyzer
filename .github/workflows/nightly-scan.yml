@@ -12,7 +12,7 @@ permissions:
 env:
   # The action installs its own default Trivy otherwise, which Renovate cannot see.
   # renovate: datasource=github-releases depName=aquasecurity/trivy
-  TRIVY_VERSION: v0.76.1
+  TRIVY_VERSION: v0.76.2
   IMAGE: ghcr.io/${{ github.repository }}:latest
 
 jobs:
