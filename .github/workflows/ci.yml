@@ -142,7 +142,7 @@ jobs:
       id-token: write # keyless cosign signing
     env:
       # renovate: datasource=npm depName=semantic-release
-      SEMANTIC_RELEASE_VERSION: 25.0.9
+      SEMANTIC_RELEASE_VERSION: 26.0.1
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
