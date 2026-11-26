@@ -10,11 +10,15 @@
   "timezone": "Europe/Amsterdam",
   "schedule": ["on monday"],
   "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "semanticCommitType": "fix"
+  },
   "minimumReleaseAge": "3 days",
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["on monday"],
-    "automerge": true
+    "automerge": true,
+    "semanticCommitType": "fix"
   },
   "packageRules": [
     {

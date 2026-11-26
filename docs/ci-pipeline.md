@@ -56,6 +56,11 @@ Releases are driven by commit messages on `main`:
 | `feat!: ...` or a `BREAKING CHANGE:` footer | Major release |
 | `docs:`, `chore:`, `ci:`, `test:`, `refactor:` | No release |
 
+Renovate commits production dependency updates, weekly lockfile maintenance and
+security updates as `fix(deps)`, so a fix in `uv.lock` always reaches a release
+([ADR 24](adr/0024-lockfile-and-security-updates-are-released.md)). Updates to
+actions, hooks, development dependencies and build tools are `chore(deps)`.
+
 Verify a released image:
 
 ```bash

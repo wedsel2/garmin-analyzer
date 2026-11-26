@@ -1,6 +1,6 @@
 # 23. Renovate runs all of Monday, also checks OSV, and tracks tool versions set in workflows
 
-- Status: Accepted
+- Status: Superseded by [24](0024-lockfile-and-security-updates-are-released.md)
 - Date: 2026-10-21
 
 ## Context
