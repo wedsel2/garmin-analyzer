@@ -32,6 +32,14 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+      # Downloads each pinned file and compares it with its --checksum (ADR 25).
+      # Needs network; locally it runs only when the Containerfile changes.
+      - id: pinned-downloads
+        name: pinned download checksums
+        entry: uv run --locked python scripts/check_pinned_downloads.py
+        language: system
+        files: ^(Containerfile|scripts/check_pinned_downloads\.py)$
+        pass_filenames: false
 
   - repo: https://github.com/hadolint/hadolint
     rev: v2.15.1

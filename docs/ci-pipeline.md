@@ -7,7 +7,8 @@ The reasoning behind each choice is in the [decision records](adr/README.md).
 
 ```text
 pull request / push to main
- ├─ lint          pre-commit: Ruff, mypy, Hadolint, actionlint, lockfile check
+ ├─ lint          pre-commit: Ruff, mypy, Hadolint, actionlint, lockfile check,
+ │               pinned download checksums
  ├─ test          pytest + coverage → SonarQube Cloud
  └─ scan-source   Trivy on uv.lock and Containerfile
         │ all three must pass
@@ -27,6 +28,7 @@ mondays           Renovate update pull requests (hosted app, not a workflow)
 | `.github/workflows/nightly-scan.yml` | Nightly vulnerability rescan of `latest` |
 | `.pre-commit-config.yaml` | Hooks shared by local commits and the lint job |
 | `scripts/smoke-test.sh` | Smoke test, runnable locally and in CI |
+| `scripts/check_pinned_downloads.py` | Checks the Containerfile's pinned downloads against their checksums |
 | `renovate.json` | Dependency update policy |
 | `.releaserc.json` | semantic-release configuration |
 | `sonar-project.properties` | SonarQube Cloud project settings |
@@ -35,7 +37,9 @@ mondays           Renovate update pull requests (hosted app, not a workflow)
 
 A change cannot reach the registry unless:
 
-- all pre-commit hooks pass,
+- all pre-commit hooks pass, including the check that every file the
+  Containerfile downloads matches its `--checksum` for the version in its `ARG`
+  ([ADR 25](adr/0025-pinned-downloads-checked-in-lint.md)),
 - tests pass with at least 80% coverage,
 - the SonarQube Cloud quality gate passes (`sonar.qualitygate.wait=true`),
 - Trivy finds no fixable HIGH or CRITICAL vulnerability in the lockfile,
@@ -63,6 +67,22 @@ cosign verify ghcr.io/wedsel2/garmin-analyzer:<version> \
   --certificate-identity-regexp '^https://github.com/wedsel2/garmin-analyzer/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
+
+## Updating a pinned download
+
+Renovate raises `TAILWIND_VERSION`, `DAISYUI_VERSION`, `ECHARTS_VERSION` and
+`HTMX_VERSION` in the Containerfile but cannot change the checksums, so these
+pull requests are not merged automatically. On such a pull request the `lint`
+job fails with the sha256 of each new file; put it in the matching
+`--checksum`, or run the check locally:
+
+```bash
+uv run scripts/check_pinned_downloads.py
+```
+
+The check downloads every file without a cache. A green image build alone does
+not prove the checksums are right: BuildKit reuses a cached `ADD` layer with
+the same checksum without fetching the new URL.
 
 ## One-time setup outside the repository
 

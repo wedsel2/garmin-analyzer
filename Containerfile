@@ -35,17 +35,17 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Compiles the stylesheet with the standalone Tailwind CLI, so no Node toolchain
 # is needed (ADR 7). The downloads are checked against pinned checksums: when
-# Renovate raises a version, put in the new checksums by hand. Only the CLI for
-# the architecture being built is fetched.
+# Renovate raises a version, put in the new checksums by hand; the lint job checks
+# them (ADR 25). Only the CLI for the architecture being built is fetched.
 FROM python:3.14-slim-trixie AS tailwind-amd64
 ARG TAILWIND_VERSION
-ADD --checksum=sha256:dc61b3ac6b8c9ca874c0cc4c57b2409791a64c5540404ca5f5367360babc313a --chmod=755 \
+ADD --checksum=sha256:e47695cee3f0d90623a91f3939b08bdee610eb5ad99340adff9d4145b284d6cc --chmod=755 \
     https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-x64 \
     /usr/local/bin/tailwindcss
 
 FROM python:3.14-slim-trixie AS tailwind-arm64
 ARG TAILWIND_VERSION
-ADD --checksum=sha256:55fd0b241214eff3de1e8ee4f22796662f2d2e7a49bcfca7477cfd0bac398195 --chmod=755 \
+ADD --checksum=sha256:ffcd0d21dbd7c605dc12743ff0c0b47debc963c86b399674084c1c8f2c96ecad --chmod=755 \
     https://github.com/tailwindlabs/tailwindcss/releases/download/v${TAILWIND_VERSION}/tailwindcss-linux-arm64 \
     /usr/local/bin/tailwindcss
 

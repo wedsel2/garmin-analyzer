@@ -29,6 +29,7 @@ the old one.
 | [21](0021-coach-reports-by-claude-opt-in.md) | The coach is a report that Claude writes on request, opt-in per user | Accepted |
 | [22](0022-sync-on-request-through-the-worker.md) | A user asks for a sync on the account page and the worker runs it | Accepted |
 | [23](0023-renovate-runs-all-monday-and-tracks-tool-versions.md) | Renovate runs all of Monday, also checks OSV, and tracks tool versions set in workflows | Accepted |
+| [25](0025-pinned-downloads-checked-in-lint.md) | Pinned downloads in the Containerfile are checked against their checksums in lint | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.
