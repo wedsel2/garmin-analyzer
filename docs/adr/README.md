@@ -28,7 +28,8 @@ the old one.
 | [20](0020-goals-as-two-tables-progress-computed.md) | Goals are two typed tables, and progress is computed when read | Accepted |
 | [21](0021-coach-reports-by-claude-opt-in.md) | The coach is a report that Claude writes on request, opt-in per user | Accepted |
 | [22](0022-sync-on-request-through-the-worker.md) | A user asks for a sync on the account page and the worker runs it | Accepted |
-| [23](0023-renovate-runs-all-monday-and-tracks-tool-versions.md) | Renovate runs all of Monday, also checks OSV, and tracks tool versions set in workflows | Accepted |
+| [23](0023-renovate-runs-all-monday-and-tracks-tool-versions.md) | Renovate runs all of Monday, also checks OSV, and tracks tool versions set in workflows | Superseded by [24](0024-lockfile-and-security-updates-are-released.md) |
+| [24](0024-lockfile-and-security-updates-are-released.md) | Lockfile maintenance and security updates are committed as fixes and released | Accepted |
 
 New records use the same sections: Context, Decision, Alternatives considered,
 Consequences.
