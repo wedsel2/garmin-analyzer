@@ -113,10 +113,41 @@ def test_malformed_checksum_fails() -> None:
     assert "not sha256:<64 hex digits>" in problem
 
 
-def test_variable_without_global_default_is_an_error() -> None:
-    text = "FROM scratch\nARG V=1\nADD --checksum=sha256:" + "0" * 64 + " https://x.test/$V /v\n"
-    with pytest.raises(ValueError, match=r"line 3: \$V has no default"):
+PIN = "--checksum=sha256:" + "0" * 64
+
+
+def test_global_arg_is_not_in_scope_until_the_stage_declares_it() -> None:
+    text = f"ARG V=1\nFROM scratch\nADD {PIN} https://x.test/$V /v\n"
+    with pytest.raises(ValueError, match=r"line 3: \$V has no value in this stage"):
         check_pinned.pinned_downloads(text)
+
+
+def test_stage_default_overrides_the_global_one() -> None:
+    text = f"ARG V=1\nFROM scratch\nARG V=2 W=x$V\nADD {PIN} https://x.test/$V/$W /v\n"
+    (download,) = check_pinned.pinned_downloads(text)
+    assert download.url == "https://x.test/2/x2"
+
+
+def test_blank_line_inside_a_continuation_is_skipped() -> None:
+    text = f"FROM scratch\nADD {PIN} \\\n\n    https://x.test/a \\\n    /a\n"
+    (download,) = check_pinned.pinned_downloads(text)
+    assert (download.line, download.url) == (2, "https://x.test/a")
+
+
+def test_add_in_json_form_is_checked() -> None:
+    text = f'ARG V=1\nFROM scratch\nARG V\nADD {PIN} ["https://x.test/$V", "/v"]\n'
+    (download,) = check_pinned.pinned_downloads(text)
+    assert download.url == "https://x.test/1"
+    with pytest.raises(ValueError, match="does not parse"):
+        check_pinned.pinned_downloads(f'FROM scratch\nADD {PIN} ["https://x.test/a"\n')
+    with pytest.raises(ValueError, match="not a list of strings"):
+        check_pinned.pinned_downloads(f"FROM scratch\nADD {PIN} [1, 2]\n")
+
+
+def test_no_remote_add_is_a_failure() -> None:
+    assert check_pinned.check("FROM scratch\nADD local.tar /\n", fetch, "x/Containerfile") == [
+        "x/Containerfile: no remote ADD found; the check would prove nothing"
+    ]
 
 
 def test_main_reports_and_exits(
@@ -130,10 +161,13 @@ def test_main_reports_and_exits(
 
     path.write_text(containerfile("1.1.0", sha(b"tool 1.0.0 x64")), encoding="utf-8")
     assert check_pinned.main([str(path)]) == 1
-    assert "put the new sha256" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "put the new sha256" in err
+    assert f"{path}:8 https://example.test/tool/v1.1.0/tool-x64" in err
 
     path.write_text("FROM scratch\nADD --checksum=sha256:x https://x.test/$NOPE /x\n")
     assert check_pinned.main([str(path)]) == 1
+    assert f"{path}: line 2: $NOPE" in capsys.readouterr().err
 
 
 def test_repository_containerfile_pins_every_download() -> None:

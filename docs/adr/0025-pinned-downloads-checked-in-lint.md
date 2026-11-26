@@ -24,11 +24,13 @@ checks the arm64 checksum at all.
 `scripts/check_pinned_downloads.py` runs as the `pinned-downloads` pre-commit
 hook, so the lint job runs it on every pull request and push. It:
 
-- expands each remote `ADD` URL from the global `ARG` defaults, for every
-  architecture stage, not only the one being built;
+- expands each remote `ADD` URL (shell or JSON form) from the `ARG` values in
+  scope in its stage, as BuildKit does, for every architecture stage, not only
+  the one being built;
 - downloads each file with no cache and compares its sha256 with `--checksum`;
 - fails on a mismatch, a failed download, a malformed checksum, a remote `ADD`
-  without `--checksum`, or a variable that has no global default.
+  without `--checksum`, a variable with no value in its stage, or a Containerfile
+  with no remote `ADD` at all (so a parser gap cannot pass silently).
 
 It uses the standard library only (no Node toolchain, ADR 7). Locally the hook
 runs only when the Containerfile or the script changes. Tests cover the parser
