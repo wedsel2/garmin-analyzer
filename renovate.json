@@ -17,10 +17,14 @@
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["on monday"],
-    "automerge": true,
-    "semanticCommitType": "fix"
+    "automerge": true
   },
   "packageRules": [
+    {
+      "description": "Release lockfile maintenance, so transitive fixes reach the image (ADR 24). A rule, so it comes after the preset's commit-type rules.",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "semanticCommitType": "fix"
+    },
     {
       "description": "Merge non-major updates once CI is green; majors wait for review.",
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],

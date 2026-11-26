@@ -21,11 +21,14 @@ image it builds for each change, but users run the released one.
 
 ## Decision
 
-- Renovate commits lockfile maintenance as `fix(deps)` (`lockFileMaintenance`
-  `semanticCommitType: fix`).
+ADR 23 stands, with this change:
+
+- Renovate commits lockfile maintenance as `fix(deps)` (a package rule matching
+  update type `lockFileMaintenance`, so it overrides the commit-type rules of
+  the `config:best-practices` preset).
 - Renovate commits updates raised by a vulnerability alert as `fix(deps)`
   (`vulnerabilityAlerts` `semanticCommitType: fix`), whatever the dependency
-  type.
+  type, development tools included.
 - Other updates keep the types ADR 4 describes: `fix(deps)` for production
   dependencies, `chore(deps)` for actions, hooks, development dependencies and
   build tools.
@@ -47,6 +50,8 @@ image it builds for each change, but users run the released one.
   also rebuilds the image on current Debian packages.
 - Weekly lockfile maintenance produces a patch release even when only
   development packages changed; the image is then the same apart from OS
-  updates. At most one such release a week.
+  updates. At most one such release a week. A security update to a development
+  tool also produces a release; these are rare, and one rule for all security
+  updates is simpler than sorting them by dependency type.
 - The nightly scan should now fail only for a CVE published since the last
   release, not for one already fixed on `main`.
